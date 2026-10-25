@@ -1,0 +1,53 @@
+# =========================
+# Frontend / Node.js
+# =========================
+frontend/node_modules/
+frontend/dist/
+node_modules/
+dist/
+
+# =========================
+# Backend / Maven
+# =========================
+backend/target/
+target/
+*.class
+*.jar
+
+# =========================
+# Generated build
+# =========================
+build-output/
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+application-local.properties
+application-dev.properties
+
+# =========================
+# IDE
+# =========================
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
