@@ -1,10 +1,95 @@
+/*
+    AquaFlow / PoolBooking - dữ liệu mẫu SQL Server
+    Chạy sau database/pool_booking.sql
+
+    Tài khoản demo:
+    - customer / password
+    - staff    / password
+    - admin    / password
+
+    Mật khẩu demo được băm BCrypt để đăng nhập bằng "password".
+*/
+
 USE PoolBooking;
 GO
--- Password for all demo accounts: password (BCrypt hash).
-INSERT INTO tai_khoan VALUES
-('TK-CUSTOMER','customer','{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy','Nguyen Van A','customer@pool.local','0900000001','CUSTOMER','HOAT_DONG'),
-('TK-STAFF','staff','{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy','Le Thi B','staff@pool.local','0900000002','STAFF','HOAT_DONG'),
-('TK-ADMIN','admin','{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy','Admin Pool','admin@pool.local','0900000003','ADMIN','HOAT_DONG');
-INSERT INTO khu_vuc VALUES ('KV01',N'Hồ người lớn',50,'HOAT_DONG'),('KV02',N'Hồ trẻ em',25,'HOAT_DONG'),('KV03',N'Hồ tập luyện',40,'HOAT_DONG');
-INSERT INTO dich_vu VALUES('DV01', N'Vé bơi người lớn', 50000, 90, 'DANG_BAN'),('DV02', N'Vé bơi trẻ em', 30000, 90, 'DANG_BAN'),('DV03', N'Vé tập luyện', 40000, 120, 'DANG_BAN');
-INSERT INTO lich_dich_vu VALUES ('L001','DV01','KV01',CAST(GETDATE() AS date),'06:00','07:30',40,40,'MO',0),('L002','DV02','KV02',CAST(GETDATE() AS date),'08:00','09:30',20,20,'MO',0),('L003','DV03','KV03',CAST(GETDATE() AS date),'16:30','18:30',30,30,'MO',0),('L004','DV01','KV01',DATEADD(day,1,CAST(GETDATE() AS date)),'06:00','07:30',40,40,'MO',0),('L005','DV02','KV02',DATEADD(day,1,CAST(GETDATE() AS date)),'08:00','09:30',20,20,'MO',0),('L006','DV03','KV03',DATEADD(day,1,CAST(GETDATE() AS date)),'18:30','20:30',30,30,'MO',0);
+
+SET NOCOUNT ON;
+GO
+
+/* =========================================================
+   1. TÀI KHOẢN
+   ========================================================= */
+INSERT INTO dbo.tai_khoan
+    (ma_tk, ten_dang_nhap, mat_khau_bam, vai_tro, trang_thai)
+VALUES
+    ('TK-CUSTOMER', 'customer', '{bcrypt}$2a$10$iHnuvcu3yObLcSDyzML3ouhYEDFsMlL9aEsJCUVm8JLVt0rsMfufW', 'CUSTOMER', 'HOAT_DONG'),
+    ('TK-STAFF',    'staff',    '{bcrypt}$2a$10$iHnuvcu3yObLcSDyzML3ouhYEDFsMlL9aEsJCUVm8JLVt0rsMfufW', 'STAFF',    'HOAT_DONG'),
+    ('TK-ADMIN',    'admin',    '{bcrypt}$2a$10$iHnuvcu3yObLcSDyzML3ouhYEDFsMlL9aEsJCUVm8JLVt0rsMfufW', 'ADMIN',    'HOAT_DONG');
+GO
+
+/* =========================================================
+   2. KHÁCH HÀNG
+   ========================================================= */
+INSERT INTO dbo.khach_hang
+    (ma_kh, ma_tk, ho_ten, dien_thoai, email, trang_thai)
+VALUES
+    ('KH001', 'TK-CUSTOMER', N'Nguyễn Văn A', '0900000001', 'customer@pool.local', 'HOAT_DONG');
+GO
+
+/* =========================================================
+   3. HỒ BƠI
+   ========================================================= */
+INSERT INTO dbo.ho_boi
+    (ma_ho_boi, ten_ho_boi, dia_chi, gio_mo_cua, gio_dong_cua, trang_thai)
+VALUES
+    ('HB01', N'Hồ Bơi Thảo Điền', N'Thảo Điền, TP. Hồ Chí Minh', '05:30', '21:00', 'HOAT_DONG'),
+    ('HB02', N'Hồ Bơi Bình An',   N'Bình An, TP. Hồ Chí Minh',   '06:00', '20:30', 'HOAT_DONG');
+GO
+
+/* =========================================================
+   4. KHU VỰC
+   ========================================================= */
+INSERT INTO dbo.khu_vuc
+    (ma_khu_vuc, ma_ho_boi, ten_khu_vuc, suc_chua, trang_thai)
+VALUES
+    ('KV01', 'HB01', N'Hồ người lớn', 50, 'HOAT_DONG'),
+    ('KV02', 'HB01', N'Hồ trẻ em',    25, 'HOAT_DONG'),
+    ('KV03', 'HB02', N'Hồ tập luyện', 40, 'HOAT_DONG');
+GO
+
+/* =========================================================
+   5. DỊCH VỤ
+   ========================================================= */
+INSERT INTO dbo.dich_vu
+    (ma_dv, ten_dv, loai_dv, don_gia, thoi_luong_phut, trang_thai)
+VALUES
+    ('DV01', N'Vé bơi người lớn', 'VE_BOI',    50000,  90, 'DANG_BAN'),
+    ('DV02', N'Vé bơi trẻ em',    'VE_BOI',    30000,  90, 'DANG_BAN'),
+    ('DV03', N'Vé tập luyện',      'LUYEN_TAP', 40000, 120, 'DANG_BAN');
+GO
+
+/* =========================================================
+   6. LỊCH DỊCH VỤ / CA BƠI
+   Dữ liệu dùng ngày hiện tại và ngày kế tiếp để demo dễ dàng.
+   ========================================================= */
+DECLARE @hom_nay DATE = CAST(GETDATE() AS DATE);
+DECLARE @ngay_mai DATE = DATEADD(DAY, 1, @hom_nay);
+
+INSERT INTO dbo.lich_dich_vu
+    (ma_lich, ma_dv, ma_khu_vuc, ngay, gio_bat_dau, gio_ket_thuc, suc_chua, so_cho_con, trang_thai)
+VALUES
+    ('L001', 'DV01', 'KV01', @hom_nay,  '06:00', '07:30', 40, 40, 'MO'),
+    ('L002', 'DV02', 'KV02', @hom_nay,  '08:00', '09:30', 20, 20, 'MO'),
+    ('L003', 'DV03', 'KV03', @hom_nay,  '16:30', '18:30', 30, 30, 'MO'),
+    ('L004', 'DV01', 'KV01', @ngay_mai, '06:00', '07:30', 40, 40, 'MO'),
+    ('L005', 'DV02', 'KV02', @ngay_mai, '08:00', '09:30', 20, 20, 'MO'),
+    ('L006', 'DV03', 'KV03', @ngay_mai, '18:30', '20:30', 30, 30, 'MO');
+GO
+
+/*
+    Không seed sẵn dat_lich / thanh_toan / check_in để luồng demo có thể tạo dữ liệu thật:
+    tra cứu ca -> checkout -> thanh toán mô phỏng -> sinh QR -> check-in.
+*/
+
+PRINT N'Đã thêm dữ liệu mẫu cho AquaFlow / PoolBooking.';
+GO

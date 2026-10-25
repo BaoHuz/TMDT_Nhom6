@@ -4,4 +4,11 @@ export const scheduleService={list:params=>api.get('/schedules',{params})};
 export const bookingService={create:data=>api.post('/bookings',data),mine:()=>api.get('/bookings/my'),cancel:id=>api.put(`/bookings/${id}/cancel`)};
 export const paymentService={pay:data=>api.post('/payments',data)};
 export const checkInService={check:data=>api.post('/check-in',data)};
-export const adminService={dashboard:()=>api.get('/admin/dashboard'),bookings:()=>api.get('/admin/bookings')};
+export const adminService={
+  dashboard:()=>api.get('/admin/dashboard'),
+  bookings:()=>api.get('/admin/bookings'),
+  services:()=>api.get('/admin/services'),
+  areas:()=>api.get('/admin/areas'),
+  schedules:()=>api.get('/admin/schedules'),
+  createSchedule:data=>api.post('/admin/schedules',data)
+};
