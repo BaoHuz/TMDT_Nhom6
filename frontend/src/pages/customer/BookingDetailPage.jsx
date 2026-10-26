@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, QrCode, AlertTriangle, CheckCircle2, ShieldAlert, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Users, QrCode, AlertTriangle, CheckCircle2, ShieldAlert, AlertCircle, CreditCard, X } from 'lucide-react';
 import { bookingService } from '../../services/bookingService';
 import { paymentService } from '../../services/paymentService';
 import { Loading, ErrorState, PageTitle } from '../../components/States';
@@ -26,7 +26,11 @@ export default function BookingDetailPage() {
   const [paying, setPaying] = useState(false);
   const [paymentMsg, setPaymentMsg] = useState('');
 
-  const flashMessage = location.state?.successMessage;
+  const gatewayResult = new URLSearchParams(location.search).get('payment');
+  const flashMessage = location.state?.successMessage || (gatewayResult === 'success'
+    ? 'VNPay báo giao dịch thành công. Đơn sẽ được xác nhận sau khi máy chủ nhận và kiểm tra IPN.'
+    : gatewayResult === 'failed' ? 'Giao dịch VNPay chưa thành công. Bạn có thể thử thanh toán lại trong thời hạn đơn.'
+    : gatewayResult === 'invalid' ? 'Không xác minh được kết quả trả về từ VNPay.' : '');
 
   const loadBooking = () => {
     setLoading(true);
@@ -39,6 +43,21 @@ export default function BookingDetailPage() {
   useEffect(() => {
     loadBooking();
   }, [id]);
+
+  useEffect(() => {
+    if (gatewayResult !== 'success') return undefined;
+    let attempts = 0;
+    const timer = window.setInterval(async () => {
+      attempts += 1;
+      try {
+        const res = await bookingService.get(id);
+        const latest = res.data.data;
+        setBooking(latest);
+        if (latest.trangThai !== 'CHO_THANH_TOAN' || attempts >= 15) window.clearInterval(timer);
+      } catch { if (attempts >= 15) window.clearInterval(timer); }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [gatewayResult, id]);
 
   const handleOpenCancelModal = async () => {
     setCancelError('');
@@ -70,14 +89,13 @@ export default function BookingDetailPage() {
     }
   };
 
-  const handlePayNow = async (simulateFailure) => {
+  const handlePayNow = async () => {
     setPaying(true);
     setPaymentMsg('');
 
     try {
-      await paymentService.pay({ maDat: id, simulateFailure });
-      setPaymentMsg('Thanh toán thành công! Vé đã được kích hoạt.');
-      loadBooking();
+      const res = await paymentService.createVnPay(id);
+      window.location.assign(res.data.data.paymentUrl);
     } catch (err) {
       setPaymentMsg(err.response?.data?.message || 'Thanh toán thất bại.');
     } finally {
@@ -165,6 +183,12 @@ export default function BookingDetailPage() {
                 </span>
               </span>
             </div>
+            {booking.trangThai === 'CHO_THANH_TOAN' && booking.hanThanhToan && (
+              <div className="info-row">
+                <span className="info-label">Hạn thanh toán:</span>
+                <span className="info-val"><b>{new Date(booking.hanThanhToan).toLocaleString('vi-VN')}</b> (trong 15 phút kể từ lúc đặt)</span>
+              </div>
+            )}
           </div>
 
           {/* If booking was canceled */}
@@ -189,23 +213,9 @@ export default function BookingDetailPage() {
             )}
 
             {booking.trangThai === 'CHO_THANH_TOAN' && (
-              <div style={{ display: 'flex', gap: '0.75rem', width: '100%', marginTop: '1rem' }}>
-                <button
-                  className="btn btn-primary"
-                  style={{ flex: 1 }}
-                  disabled={paying}
-                  onClick={() => handlePayNow(false)}
-                >
-                  {paying ? 'Đang thanh toán...' : 'Thanh toán ngay (Thành công)'}
-                </button>
-                <button
-                  className="btn btn-outline"
-                  disabled={paying}
-                  onClick={() => handlePayNow(true)}
-                >
-                  Mô phỏng lỗi
-                </button>
-              </div>
+              <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={paying} onClick={handlePayNow}>
+                <CreditCard size={16} /> {paying ? 'Đang chuyển tới VNPay...' : 'Thanh toán qua VNPay Sandbox'}
+              </button>
             )}
           </div>
         </div>

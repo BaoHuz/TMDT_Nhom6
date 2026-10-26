@@ -13,7 +13,7 @@ public final class CustomerDtos {
         String khuVuc, LocalDate ngay, LocalTime gioBatDau, LocalTime gioKetThuc, int soNguoi,
         BigDecimal donGia, BigDecimal tongTien, String trangThai, String trangThaiThanhToan,
         String maVeQr, String lyDoHuy, LocalDateTime thoiGianHuy, BigDecimal tyLeHoan,
-        BigDecimal soTienHoan) {}
+        BigDecimal soTienHoan, LocalDateTime hanThanhToan) {}
     public record CancellationPreviewResponse(boolean eligible, long hoursRemaining,
         BigDecimal refundRate, BigDecimal refundAmount, String message) {}
     public record CancelRequest(String reason) {}

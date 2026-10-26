@@ -7,20 +7,96 @@ import com.poolbooking.exception.BusinessException;
 import com.poolbooking.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class PaymentService {
     private final DatLichRepository bookings; private final ThanhToanRepository payments;
     private final BookingService bookingService;
+    private final VnPayGateway vnPay;
+    @Autowired
+    public PaymentService(DatLichRepository bookings, ThanhToanRepository payments, BookingService bookingService, VnPayGateway vnPay) {
+        this.bookings = bookings; this.payments = payments; this.bookingService = bookingService; this.vnPay = vnPay;
+    }
     public PaymentService(DatLichRepository bookings, ThanhToanRepository payments, BookingService bookingService) {
-        this.bookings = bookings; this.payments = payments; this.bookingService = bookingService;
+        this(bookings, payments, bookingService, new VnPayGateway());
+    }
+
+    @Transactional
+    public String createVnPayUrl(String username, String bookingId, String ipAddress) {
+        DatLich owned = bookingService.owned(username, bookingId);
+        DatLich booking = bookings.lockById(owned.maDat).orElseThrow();
+        if (booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN && booking.hanThanhToan != null && !booking.hanThanhToan.isAfter(LocalDateTime.now())) {
+            bookingService.expireIfNeeded(booking);
+            throw new BusinessException("Đơn đã hết hạn thanh toán. Vui lòng đặt lại.");
+        }
+        if (booking.trangThai != TrangThaiDatLich.CHO_THANH_TOAN)
+            throw new BusinessException("Đơn không ở trạng thái chờ thanh toán");
+        String txnRef = "VN" + UUID.randomUUID().toString().replace("-", "");
+        LocalDateTime now = LocalDateTime.now();
+        ThanhToan payment = new ThanhToan();
+        payment.maTt = "TT-" + UUID.randomUUID();
+        payment.maDat = booking.maDat;
+        payment.maGiaoDich = txnRef;
+        payment.soTien = booking.tongTien;
+        payment.phuongThuc = "VNPAY";
+        payment.trangThai = TrangThaiThanhToan.CHO_XU_LY;
+        payments.save(payment);
+        return vnPay.createPaymentUrl(txnRef, booking.tongTien, "Thanh toan don " + booking.maDat,
+                ipAddress, now, booking.hanThanhToan);
+    }
+
+    @Transactional
+    public Map<String, String> handleVnPayIpn(Map<String, String> params) {
+        if (!vnPay.verify(params)) return ipnResult("97", "Invalid signature");
+        ThanhToan payment = payments.findByMaGiaoDich(params.get("vnp_TxnRef")).orElse(null);
+        if (payment == null) return ipnResult("01", "Order not found");
+        if (payment.trangThai == TrangThaiThanhToan.THANH_CONG) return ipnResult("02", "Order already confirmed");
+        try {
+            BigDecimal amount = new BigDecimal(params.getOrDefault("vnp_Amount", "0")).movePointLeft(2);
+            if (amount.compareTo(payment.soTien) != 0) return ipnResult("04", "Invalid amount");
+        } catch (NumberFormatException ex) { return ipnResult("04", "Invalid amount"); }
+
+        DatLich booking = bookings.lockById(payment.maDat).orElse(null);
+        if (booking == null) return ipnResult("01", "Order not found");
+        boolean success = "00".equals(params.get("vnp_ResponseCode")) && "00".equals(params.get("vnp_TransactionStatus"));
+        if (success && booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN
+                && booking.hanThanhToan != null && booking.hanThanhToan.isAfter(LocalDateTime.now())) {
+            payment.trangThai = TrangThaiThanhToan.THANH_CONG;
+            booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
+            booking.maVeQr = "QR-" + booking.maDat;
+            bookings.save(booking);
+        } else {
+            payment.trangThai = TrangThaiThanhToan.THAT_BAI;
+            if (booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN) bookingService.expireIfNeeded(booking);
+        }
+        payments.save(payment);
+        return ipnResult("00", "Received");
+    }
+
+    public boolean verifyVnPayReturn(Map<String, String> params) { return vnPay.verify(params); }
+
+    @Transactional(readOnly = true)
+    public String bookingIdForVnPayReturn(String txnRef) {
+        return payments.findByMaGiaoDich(txnRef).map(x -> x.maDat).orElse(null);
+    }
+
+    private Map<String, String> ipnResult(String code, String message) {
+        return Map.of("RspCode", code, "Message", message);
     }
 
     @Transactional(noRollbackFor = BusinessException.class)
     public DatLich pay(String username, PaymentRequest request) {
         DatLich owned = bookingService.owned(username, request.maDat());
         DatLich booking = bookings.lockById(owned.maDat).orElseThrow();
+        if (booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN && booking.hanThanhToan != null && !booking.hanThanhToan.isAfter(java.time.LocalDateTime.now())) {
+            bookingService.expireIfNeeded(booking);
+            throw new BusinessException("Đơn đã hết hạn thanh toán. Vui lòng đặt lại.");
+        }
         if (booking.trangThai != TrangThaiDatLich.CHO_THANH_TOAN)
             throw new BusinessException("Đơn không ở trạng thái chờ thanh toán");
         ThanhToan payment = new ThanhToan();

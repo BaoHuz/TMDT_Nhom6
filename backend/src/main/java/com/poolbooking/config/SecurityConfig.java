@@ -27,7 +27,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint((request, response, exception) -> response.sendError(401))
                 .accessDeniedHandler((request, response, exception) -> response.sendError(403)))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/error").permitAll()
+                .requestMatchers("/api/auth/**", "/api/payments/vnpay/ipn", "/api/payments/vnpay/return", "/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/pools/**", "/api/areas/**", "/api/services/**", "/api/schedules/**").permitAll()
                 .requestMatchers("/api/check-in/**").hasAnyRole("STAFF", "ADMIN")
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")

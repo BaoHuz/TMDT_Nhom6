@@ -38,6 +38,7 @@ public class BookingService {
         DatLich booking=new DatLich(); booking.maDat="DL-"+UUID.randomUUID(); booking.maKh=currentCustomer(username).maKh;
         booking.maLich=schedule.maLich; booking.soNguoi=request.soNguoi(); booking.donGiaTaiDat=service.donGia;
         booking.tongTien=service.donGia.multiply(BigDecimal.valueOf(request.soNguoi())); booking.trangThai=TrangThaiDatLich.CHO_THANH_TOAN;
+        booking.hanThanhToan=LocalDateTime.now().plusMinutes(15);
         schedule.soChoCon-=request.soNguoi(); if(schedule.soChoCon==0) schedule.trangThai=TrangThaiLich.HET_CHO;
         schedules.save(schedule); return detail(bookings.save(booking));
     }
@@ -88,5 +89,23 @@ public class BookingService {
     private void assertOwner(String username,DatLich b){if(!b.maKh.equals(currentCustomer(username).maKh))throw new BusinessException("Bạn không có quyền truy cập đơn này");}
     private KhachHang currentCustomer(String username){TaiKhoan u=users.findByTenDangNhap(username).orElseThrow();return customers.findByMaTk(u.maTk).orElseThrow(() -> new BusinessException("Tài khoản không có hồ sơ khách hàng"));}
     private BookingSummaryResponse summary(DatLich b){ScheduleResponse s=catalog.schedule(schedules.findById(b.maLich).orElseThrow());return new BookingSummaryResponse(b.maDat,b.maLich,s.dichVu(),s.hoBoi(),s.khuVuc(),s.ngay(),s.gioBatDau(),s.gioKetThuc(),b.soNguoi,b.tongTien,b.trangThai.name(),b.maVeQr);}
-    private BookingDetailResponse detail(DatLich b){ScheduleResponse s=catalog.schedule(schedules.findById(b.maLich).orElseThrow());String payment=payments.findFirstByMaDatOrderByThoiDiemDesc(b.maDat).map(x->x.trangThai.name()).orElse("CHUA_THANH_TOAN");return new BookingDetailResponse(b.maDat,b.maLich,s.dichVu(),s.hoBoi(),s.khuVuc(),s.ngay(),s.gioBatDau(),s.gioKetThuc(),b.soNguoi,b.donGiaTaiDat,b.tongTien,b.trangThai.name(),payment,b.maVeQr,b.lyDoHuy,b.thoiGianHuy,b.tyLeHoan,b.soTienHoan);}
+    @Transactional
+    public void expireIfNeeded(DatLich booking) {
+        if (booking.trangThai != TrangThaiDatLich.CHO_THANH_TOAN || booking.hanThanhToan == null || booking.hanThanhToan.isAfter(LocalDateTime.now())) return;
+        LichDichVu schedule=schedules.lockById(booking.maLich).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
+        booking.trangThai=TrangThaiDatLich.HET_HAN;
+        schedule.soChoCon=Math.min(schedule.sucChua,schedule.soChoCon+booking.soNguoi);
+        if(schedule.trangThai==TrangThaiLich.HET_CHO && LocalDateTime.of(schedule.ngay,schedule.gioBatDau).isAfter(LocalDateTime.now())) schedule.trangThai=TrangThaiLich.MO;
+        schedules.save(schedule); bookings.save(booking);
+    }
+
+    @Transactional
+    public void expirePendingBookings() {
+        bookings.findByTrangThaiAndHanThanhToanLessThanEqual(TrangThaiDatLich.CHO_THANH_TOAN,LocalDateTime.now()).forEach(b -> {
+            DatLich locked=bookings.lockById(b.maDat).orElse(null);
+            if(locked!=null) expireIfNeeded(locked);
+        });
+    }
+
+    private BookingDetailResponse detail(DatLich b){ScheduleResponse s=catalog.schedule(schedules.findById(b.maLich).orElseThrow());String payment=payments.findFirstByMaDatOrderByThoiDiemDesc(b.maDat).map(x->x.trangThai.name()).orElse("CHUA_THANH_TOAN");return new BookingDetailResponse(b.maDat,b.maLich,s.dichVu(),s.hoBoi(),s.khuVuc(),s.ngay(),s.gioBatDau(),s.gioKetThuc(),b.soNguoi,b.donGiaTaiDat,b.tongTien,b.trangThai.name(),payment,b.maVeQr,b.lyDoHuy,b.thoiGianHuy,b.tyLeHoan,b.soTienHoan,b.hanThanhToan);}
 }

@@ -77,6 +77,23 @@ Mật khẩu mặc định: `password`
 | STAFF | `staff@pool.local` |
 | ADMIN | `admin@pool.local` |
 
+Quản trị viên có thể tạo thêm tài khoản STAFF tại **Quản trị → Tài khoản & Phân quyền**. Nhân viên đăng nhập bằng email hoặc tên đăng nhập; hệ thống chuyển tới quầy check-in. Đơn đặt chỗ chờ thanh toán có hạn 15 phút, sau đó tự hết hạn và chỗ được trả về ca bơi.
+
+### VNPay Sandbox
+
+Đăng ký merchant sandbox để nhận `TMN_CODE` và `HASH_SECRET`, sau đó đặt biến môi trường trong terminal chạy backend:
+
+```powershell
+$env:VNPAY_TMN_CODE="ma_merchant"
+$env:VNPAY_HASH_SECRET="chuoi_bi_mat"
+$env:VNPAY_RETURN_URL="https://ten-mien-cong-khai/api/payments/vnpay/return"
+$env:FRONTEND_URL="http://localhost:5173"
+```
+
+VNPay cần gọi được IPN tại `https://ten-mien-cong-khai/api/payments/vnpay/ipn`; cấu hình URL này trong portal merchant. Khi chạy local, dùng HTTPS tunnel trỏ về backend port `8080` và đặt cùng URL tunnel làm `VNPAY_RETURN_URL`. Không commit secret vào repo.
+
+Nếu dùng database đã tạo trước thay đổi hạn thanh toán, chạy `database/migration_payment_deadline.sql`. Database cũ có schema lệch thì tạo lại bằng `database/pool_booking.sql` rồi nạp `database/seed_data.sql` (script tạo schema sẽ xóa các bảng demo hiện tại).
+
 ## API chính
 
 - `POST /api/auth/register`

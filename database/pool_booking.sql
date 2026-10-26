@@ -183,6 +183,7 @@ CREATE TABLE dbo.dat_lich (
     ma_lich         VARCHAR(60)   NOT NULL,
     ma_ve_qr        VARCHAR(100)  NULL,
     ngay_dat        DATETIME2     NOT NULL CONSTRAINT DF_dat_lich_ngay_dat DEFAULT SYSDATETIME(),
+    han_thanh_toan  DATETIME2     NOT NULL CONSTRAINT DF_dat_lich_han_thanh_toan DEFAULT DATEADD(MINUTE, 15, SYSDATETIME()),
     so_nguoi        INT           NOT NULL,
     don_gia_tai_dat DECIMAL(18,2) NOT NULL,
     tong_tien       DECIMAL(18,2) NOT NULL,
@@ -247,7 +248,7 @@ CREATE TABLE dbo.thanh_toan (
     CONSTRAINT FK_tt_dat FOREIGN KEY (ma_dat) REFERENCES dbo.dat_lich(ma_dat),
     CONSTRAINT CK_tt_so_tien CHECK (so_tien > 0),
     CONSTRAINT CK_tt_trang_thai
-        CHECK (trang_thai IN ('THANH_CONG', 'THAT_BAI', 'HOAN_TIEN')),
+        CHECK (trang_thai IN ('CHO_XU_LY', 'THANH_CONG', 'THAT_BAI', 'HOAN_TIEN')),
     CONSTRAINT CK_tt_trang_thai_hoan
         CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('KHONG_HOAN', 'HOAN_MOT_PHAN', 'HOAN_TOAN')),
     CONSTRAINT CK_tt_so_tien_hoan

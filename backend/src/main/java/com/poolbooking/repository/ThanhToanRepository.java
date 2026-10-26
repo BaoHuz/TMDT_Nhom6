@@ -11,4 +11,5 @@ public interface ThanhToanRepository extends JpaRepository<ThanhToan, String> {
     List<ThanhToan> findByTrangThai(TrangThaiThanhToan trangThai);
     Optional<ThanhToan> findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc(String maDat, TrangThaiThanhToan trangThai);
     Optional<ThanhToan> findFirstByMaDatOrderByThoiDiemDesc(String maDat);
+    Optional<ThanhToan> findByMaGiaoDich(String maGiaoDich);
 }

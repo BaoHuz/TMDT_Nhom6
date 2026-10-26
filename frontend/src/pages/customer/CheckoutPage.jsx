@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CreditCard, CheckCircle2, AlertCircle, ArrowLeft, Calendar, Clock, MapPin, Users, ShieldAlert } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { AlertCircle, ArrowLeft, Calendar, Clock, MapPin, Users, ShieldAlert } from 'lucide-react';
 import { scheduleService } from '../../services/scheduleService';
 import { bookingService } from '../../services/bookingService';
 import { paymentService } from '../../services/paymentService';
@@ -9,7 +9,6 @@ import { money, dateText } from '../../utils/view';
 
 export default function CheckoutPage() {
   const { scheduleId } = useParams();
-  const navigate = useNavigate();
 
   const [schedule, setSchedule] = useState(null);
   const [soNguoi, setSoNguoi] = useState(1);
@@ -23,7 +22,6 @@ export default function CheckoutPage() {
   const [createError, setCreateError] = useState('');
 
   // Payment state
-  const [simulateFailure, setSimulateFailure] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
 
@@ -58,14 +56,8 @@ export default function CheckoutPage() {
     setPaying(true);
 
     try {
-      await paymentService.pay({
-        maDat: booking.maDat,
-        simulateFailure
-      });
-      // Payment successful: redirect to booking detail with QR code
-      navigate(`/my/bookings/${booking.maDat}`, {
-        state: { successMessage: 'Thanh toán thành công! Vé bơi của bạn đã được kích hoạt.' }
-      });
+      const res = await paymentService.createVnPay(booking.maDat);
+      window.location.assign(res.data.data.paymentUrl);
     } catch (err) {
       const msg = err.response?.data?.message || 'Thanh toán thất bại.';
       setPaymentError(msg);
@@ -86,7 +78,7 @@ export default function CheckoutPage() {
       </Link>
 
       <PageTitle eyebrow="THANH TOÁN TRỰC TUYẾN" title="Xác nhận đặt vé & Thanh toán">
-        {step === 1 ? 'Bước 1: Chọn số lượng vé và kiểm tra thông tin' : 'Bước 2: Thanh toán mô phỏng an toàn'}
+        {step === 1 ? 'Bước 1: Chọn số lượng vé và kiểm tra thông tin' : 'Bước 2: Thanh toán qua VNPay Sandbox'}
       </PageTitle>
 
       {/* Progress steps */}
@@ -98,7 +90,7 @@ export default function CheckoutPage() {
         <div className="step-line" />
         <div className={`step-item ${step === 2 ? 'active' : ''}`}>
           <span className="step-circle">2</span>
-          <span>Thanh toán mô phỏng</span>
+          <span>Thanh toán VNPay</span>
         </div>
       </div>
 
@@ -178,9 +170,9 @@ export default function CheckoutPage() {
             </div>
           ) : (
             <div className="card checkout-card">
-              <h3>Cổng thanh toán mô phỏng</h3>
+              <h3>Cổng thanh toán VNPay Sandbox</h3>
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                Đơn đặt vé <b>{booking?.maDat}</b> đã được tạo ở trạng thái Chờ thanh toán. Hãy chọn kịch bản để kiểm thử hệ thống:
+                Đơn đặt vé <b>{booking?.maDat}</b> đã được tạo ở trạng thái Chờ thanh toán. Bạn có 15 phút để hoàn tất thanh toán; sau hạn này đơn tự hết hiệu lực và chỗ được trả lại lịch:
               </p>
 
               {paymentError && (
@@ -193,36 +185,9 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div className="payment-options">
-                <label className={`payment-option-card ${!simulateFailure ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="payOption"
-                    checked={!simulateFailure}
-                    onChange={() => setSimulateFailure(false)}
-                  />
-                  <div className="option-content">
-                    <div className="option-title">
-                      <CreditCard size={18} /> Thanh toán thành công (Mô phỏng chuẩn)
-                    </div>
-                    <p>Hệ thống ghi nhận giao dịch thành công, xác nhận đơn và sinh mã QR check-in ngay lập tức.</p>
-                  </div>
-                </label>
-
-                <label className={`payment-option-card ${simulateFailure ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="payOption"
-                    checked={simulateFailure}
-                    onChange={() => setSimulateFailure(true)}
-                  />
-                  <div className="option-content">
-                    <div className="option-title">
-                      <ShieldAlert size={18} /> Mô phỏng thanh toán thất bại
-                    </div>
-                    <p>Kiểm tra xử lý lỗi khi giao dịch bị từ chối. Đơn hàng vẫn ở trạng thái Chờ thanh toán và không sinh mã QR.</p>
-                  </div>
-                </label>
+              <div className="alert-box alert-info">
+                <ShieldAlert size={20} />
+                <div>VNPay Sandbox sẽ mở trang thanh toán thử nghiệm. Đơn có 15 phút để hoàn tất; mã QR chỉ được cấp sau khi hệ thống xác minh callback.</div>
               </div>
 
               <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
@@ -233,7 +198,7 @@ export default function CheckoutPage() {
                   disabled={paying}
                   onClick={handlePay}
                 >
-                  {paying ? 'Đang giao dịch...' : 'Xác nhận thanh toán'}
+                  {paying ? 'Đang chuyển tới VNPay...' : 'Thanh toán qua VNPay Sandbox'}
                 </button>
 
                 <Link to="/my/bookings" className="btn btn-secondary btn-large">
