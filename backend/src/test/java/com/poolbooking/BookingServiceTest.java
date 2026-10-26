@@ -1,0 +1,210 @@
+package com.poolbooking;
+
+import com.poolbooking.dto.BookingDtos.BookingRequest;
+import com.poolbooking.dto.CatalogDtos.ScheduleResponse;
+import com.poolbooking.dto.CustomerDtos.*;
+import com.poolbooking.entity.*;
+import com.poolbooking.enums.*;
+import com.poolbooking.exception.BusinessException;
+import com.poolbooking.repository.*;
+import com.poolbooking.service.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class BookingServiceTest {
+
+    @Mock private DatLichRepository bookings;
+    @Mock private LichDichVuRepository schedules;
+    @Mock private DichVuRepository services;
+    @Mock private TaiKhoanRepository users;
+    @Mock private KhachHangRepository customers;
+    @Mock private ThanhToanRepository payments;
+    @Mock private CheckInRepository checkIns;
+    @Mock private CatalogService catalog;
+
+    private BookingService bookingService;
+
+    @BeforeEach
+    void setUp() {
+        bookingService = new BookingService(
+            bookings, schedules, services, users, customers, payments, checkIns, catalog
+        );
+    }
+
+    @Test
+    void customerBooking_Success() {
+        TaiKhoan user = new TaiKhoan();
+        user.maTk = "TK-1";
+        user.tenDangNhap = "customer1";
+
+        KhachHang customer = new KhachHang();
+        customer.maKh = "KH-1";
+        customer.maTk = "TK-1";
+
+        LichDichVu schedule = new LichDichVu();
+        schedule.maLich = "L-001";
+        schedule.maDv = "DV-01";
+        schedule.ngay = LocalDate.now().plusDays(1);
+        schedule.gioBatDau = LocalTime.of(8, 0);
+        schedule.gioKetThuc = LocalTime.of(9, 30);
+        schedule.sucChua = 30;
+        schedule.soChoCon = 10;
+        schedule.trangThai = TrangThaiLich.MO;
+
+        DichVu service = new DichVu();
+        service.maDv = "DV-01";
+        service.donGia = BigDecimal.valueOf(50000);
+
+        when(users.findByTenDangNhap("customer1")).thenReturn(Optional.of(user));
+        when(customers.findByMaTk("TK-1")).thenReturn(Optional.of(customer));
+        when(schedules.lockById("L-001")).thenReturn(Optional.of(schedule));
+        when(services.findById("DV-01")).thenReturn(Optional.of(service));
+        when(bookings.save(any(DatLich.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(schedules.findById("L-001")).thenReturn(Optional.of(schedule));
+        when(catalog.schedule(any(LichDichVu.class))).thenReturn(new ScheduleResponse(
+            "L-001", "DV-01", "Vé người lớn", BigDecimal.valueOf(50000),
+            "KV-01", "Khu người lớn", "HB-01", "Hồ Thảo Điền",
+            schedule.ngay, schedule.gioBatDau, schedule.gioKetThuc, 30, 8, "MO"
+        ));
+
+        BookingDetailResponse res = bookingService.create("customer1", new BookingRequest("L-001", 2));
+
+        assertThat(res).isNotNull();
+        assertThat(res.soNguoi()).isEqualTo(2);
+        assertThat(res.donGia()).isEqualByComparingTo(BigDecimal.valueOf(50000));
+        assertThat(res.tongTien()).isEqualByComparingTo(BigDecimal.valueOf(100000));
+        assertThat(res.trangThai()).isEqualTo("CHO_THANH_TOAN");
+        assertThat(schedule.soChoCon).isEqualTo(8);
+        verify(schedules).save(schedule);
+    }
+
+    @Test
+    void customerCannotViewOtherCustomerBooking() {
+        TaiKhoan userA = new TaiKhoan();
+        userA.maTk = "TK-A";
+        userA.tenDangNhap = "userA";
+
+        KhachHang custA = new KhachHang();
+        custA.maKh = "KH-A";
+        custA.maTk = "TK-A";
+
+        DatLich bookingOfB = new DatLich();
+        bookingOfB.maDat = "DL-B";
+        bookingOfB.maKh = "KH-B"; // belongs to customer B
+
+        when(users.findByTenDangNhap("userA")).thenReturn(Optional.of(userA));
+        when(customers.findByMaTk("TK-A")).thenReturn(Optional.of(custA));
+        when(bookings.findById("DL-B")).thenReturn(Optional.of(bookingOfB));
+
+        assertThatThrownBy(() -> bookingService.detail("userA", "DL-B"))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("Bạn không có quyền truy cập đơn này");
+    }
+
+    @Test
+    void customerCancelPreview_24HoursOrMore_Refund100Percent() {
+        TaiKhoan user = new TaiKhoan();
+        user.maTk = "TK-1";
+        user.tenDangNhap = "customer1";
+
+        KhachHang cust = new KhachHang();
+        cust.maKh = "KH-1";
+        cust.maTk = "TK-1";
+
+        LichDichVu schedule = new LichDichVu();
+        schedule.maLich = "L-FUTURE";
+        schedule.ngay = LocalDate.now().plusDays(3);
+        schedule.gioBatDau = LocalTime.of(10, 0);
+
+        DatLich booking = new DatLich();
+        booking.maDat = "DL-01";
+        booking.maKh = "KH-1";
+        booking.maLich = "L-FUTURE";
+        booking.tongTien = BigDecimal.valueOf(100000);
+        booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
+
+        when(users.findByTenDangNhap("customer1")).thenReturn(Optional.of(user));
+        when(customers.findByMaTk("TK-1")).thenReturn(Optional.of(cust));
+        when(bookings.findById("DL-01")).thenReturn(Optional.of(booking));
+        when(schedules.findById("L-FUTURE")).thenReturn(Optional.of(schedule));
+        when(checkIns.existsByMaDat("DL-01")).thenReturn(false);
+
+        CancellationPreviewResponse preview = bookingService.cancelPreview("customer1", "DL-01");
+
+        assertThat(preview.eligible()).isTrue();
+        assertThat(preview.refundRate()).isEqualByComparingTo(BigDecimal.valueOf(100));
+        assertThat(preview.refundAmount()).isEqualByComparingTo(BigDecimal.valueOf(100000));
+    }
+
+    @Test
+    void customerCancel_Success_UpdatesStatusAndRefund() {
+        TaiKhoan user = new TaiKhoan();
+        user.maTk = "TK-1";
+        user.tenDangNhap = "customer1";
+
+        KhachHang cust = new KhachHang();
+        cust.maKh = "KH-1";
+        cust.maTk = "TK-1";
+
+        LichDichVu schedule = new LichDichVu();
+        schedule.maLich = "L-FUTURE";
+        schedule.ngay = LocalDate.now().plusDays(2);
+        schedule.gioBatDau = LocalTime.of(10, 0);
+        schedule.sucChua = 20;
+        schedule.soChoCon = 15;
+        schedule.trangThai = TrangThaiLich.MO;
+
+        DatLich booking = new DatLich();
+        booking.maDat = "DL-01";
+        booking.maKh = "KH-1";
+        booking.maLich = "L-FUTURE";
+        booking.soNguoi = 2;
+        booking.donGiaTaiDat = BigDecimal.valueOf(50000);
+        booking.tongTien = BigDecimal.valueOf(100000);
+        booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
+
+        ThanhToan payment = new ThanhToan();
+        payment.maTt = "TT-01";
+        payment.maDat = "DL-01";
+        payment.soTien = BigDecimal.valueOf(100000);
+        payment.trangThai = TrangThaiThanhToan.THANH_CONG;
+
+        when(users.findByTenDangNhap("customer1")).thenReturn(Optional.of(user));
+        when(customers.findByMaTk("TK-1")).thenReturn(Optional.of(cust));
+        when(bookings.lockById("DL-01")).thenReturn(Optional.of(booking));
+        when(schedules.findById("L-FUTURE")).thenReturn(Optional.of(schedule));
+        when(schedules.lockById("L-FUTURE")).thenReturn(Optional.of(schedule));
+        when(checkIns.existsByMaDat("DL-01")).thenReturn(false);
+        when(payments.findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc("DL-01", TrangThaiThanhToan.THANH_CONG))
+            .thenReturn(Optional.of(payment));
+        when(bookings.save(any(DatLich.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(catalog.schedule(any(LichDichVu.class))).thenReturn(new ScheduleResponse(
+            "L-FUTURE", "DV-01", "Vé người lớn", BigDecimal.valueOf(50000),
+            "KV-01", "Khu người lớn", "HB-01", "Hồ Thảo Điền",
+            schedule.ngay, schedule.gioBatDau, LocalTime.of(11, 30), 20, 17, "MO"
+        ));
+
+        BookingDetailResponse res = bookingService.cancel("customer1", "DL-01", "Bận việc đột xuất");
+
+        assertThat(res.trangThai()).isEqualTo("DA_HUY");
+        assertThat(res.tyLeHoan()).isEqualByComparingTo(BigDecimal.valueOf(100));
+        assertThat(res.soTienHoan()).isEqualByComparingTo(BigDecimal.valueOf(100000));
+        assertThat(schedule.soChoCon).isEqualTo(17); // returned 2 spots
+        assertThat(payment.trangThaiHoan).isEqualTo("HOAN_TOAN");
+        assertThat(payment.soTienHoan).isEqualByComparingTo(BigDecimal.valueOf(100000));
+        verify(payments).save(payment);
+    }
+}

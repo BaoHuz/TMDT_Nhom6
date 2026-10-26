@@ -9,7 +9,7 @@
 
 ## Database
 
-Chạy lần lượt `database/pool_booking.sql` và `database/seed_data.sql` bằng SQL Server Management Studio. Sau đó sửa username/password trong `backend/src/main/resources/application.properties`.
+Chạy lần lượt `database/pool_booking.sql` và `database/seed_data.sql` bằng SQL Server Management Studio. Nếu mật khẩu `sa` không phải `123`, đặt biến môi trường `DB_PASSWORD` trước khi chạy backend.
 
 ## Backend
 
@@ -17,8 +17,8 @@ Windows:
 
 ```powershell
 cd backend
-mvnw.cmd clean package -DskipTests
-mvnw.cmd spring-boot:run
+.\mvnw.cmd clean package -DskipTests
+.\mvnw.cmd spring-boot:run
 ```
 
 Hoặc nếu đã cài Maven:
@@ -46,9 +46,9 @@ Frontend chạy tại `http://localhost:5173`.
 ## Tài khoản demo
 
 ```text
-CUSTOMER: customer / password
-STAFF:    staff    / password
-ADMIN:    admin    / password
+CUSTOMER: customer@pool.local / password
+STAFF:    staff@pool.local    / password
+ADMIN:    admin@pool.local    / password
 ```
 
 Luồng demo: CUSTOMER đăng nhập → xem lịch → đặt vé → thanh toán mô phỏng → nhận QR → STAFF check-in → ADMIN xem dashboard.

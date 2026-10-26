@@ -29,19 +29,20 @@ database/pool_booking.sql
 database/seed_data.sql
 ```
 
-Sau đó sửa thông tin kết nối trong `backend/src/main/resources/application.properties`:
+Mặc định local dùng SQL Server `localhost:1433`, tài khoản `sa`, mật khẩu `123`. Có thể ghi đè an toàn bằng biến môi trường:
 
-```properties
-spring.datasource.username=sa
-spring.datasource.password=YOUR_PASSWORD
+```powershell
+$env:DB_USERNAME="sa"
+$env:DB_PASSWORD="mat_khau_sql_server"
+$env:JWT_SECRET="chuoi-bi-mat-jwt-dai-va-ngau-nhien"
 ```
 
 ## Chạy backend
 
 ```powershell
 cd backend
-mvnw.cmd clean package -DskipTests
-mvnw.cmd spring-boot:run
+.\mvnw.cmd clean package -DskipTests
+.\mvnw.cmd spring-boot:run
 ```
 
 Hoặc nếu đã cài Maven:
@@ -70,11 +71,11 @@ Frontend chạy tại `http://localhost:5173`.
 
 Mật khẩu mặc định: `password`
 
-| Vai trò | Tài khoản |
+| Vai trò | Email đăng nhập |
 |---|---|
-| CUSTOMER | `customer` |
-| STAFF | `staff` |
-| ADMIN | `admin` |
+| CUSTOMER | `customer@pool.local` |
+| STAFF | `staff@pool.local` |
+| ADMIN | `admin@pool.local` |
 
 ## API chính
 
@@ -95,4 +96,4 @@ Mật khẩu mặc định: `password`
 
 ## Lưu ý
 
-Đây là MVP phục vụ demo đồ án. QR hiện được sinh dưới dạng mã chuỗi `QR-{maDat}`; dữ liệu frontend hiện có một phần giao diện mock và lớp Axios/Auth để kết nối API backend.
+Đây là MVP phục vụ demo đồ án. QR hiện được sinh dưới dạng mã chuỗi `QR-{maDat}`. Lịch bơi, đơn đặt, thanh toán, check-in và dashboard trên frontend đều gọi REST API; không còn dùng mảng dữ liệu viết cứng trong `main.jsx`.
