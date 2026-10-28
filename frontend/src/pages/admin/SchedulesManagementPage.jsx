@@ -109,7 +109,7 @@ export default function SchedulesManagementPage() {
     setCancelling(true);
     try {
       await adminService.cancelSchedule(cancelModalSchedule.maLich, cancelReason);
-      setSuccessMsg('Đã hủy ca bơi và hoàn tiền 100% cho các đơn hàng hợp lệ!');
+      setSuccessMsg('Đã hủy ca bơi. Yêu cầu hoàn tiền 100% đã được gửi hoặc đang chờ xử lý.');
       setCancelModalSchedule(null);
       setCancelReason('');
       loadData();
@@ -338,7 +338,7 @@ export default function SchedulesManagementPage() {
                 <AlertCircle size={20} />
                 <div>
                   <b>Lưu ý quan trọng:</b>
-                  <p>Hành động này sẽ đóng ca <b>{cancelModalSchedule.maLich}</b>, hủy tất cả đơn đặt vé chưa check-in trong ca này và <b>hoàn tiền 100%</b> cho khách đã thanh toán.</p>
+                  <p>Hành động này sẽ đóng ca <b>{cancelModalSchedule.maLich}</b>, hủy tất cả đơn đặt vé chưa check-in và gửi yêu cầu hoàn 100% với đơn đã thanh toán. Trạng thái hoàn tiền sẽ được cập nhật theo phản hồi xử lý.</p>
                 </div>
               </div>
 

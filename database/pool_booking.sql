@@ -192,6 +192,7 @@ CREATE TABLE dbo.dat_lich (
     -- Bổ sung nghiệp vụ hủy / hoàn tiền
     ly_do_huy       NVARCHAR(255) NULL,
     thoi_gian_huy   DATETIME2     NULL,
+    thoi_diem_bat_dau_tinh_hoan DATETIME2 NULL,
     ty_le_hoan      DECIMAL(5,2)  NULL,
     so_tien_hoan    DECIMAL(18,2) NULL,
 
@@ -236,6 +237,7 @@ CREATE TABLE dbo.thanh_toan (
     so_tien           DECIMAL(18,2) NOT NULL,
     phuong_thuc       VARCHAR(30)   NOT NULL CONSTRAINT DF_thanh_toan_phuong_thuc DEFAULT 'MO_PHONG',
     ma_giao_dich      VARCHAR(100)  NULL,
+    ma_giao_dich_vnpay VARCHAR(50)  NULL,
     trang_thai        VARCHAR(20)   NOT NULL,
 
     -- Bổ sung nghiệp vụ hoàn tiền theo TH4
@@ -248,9 +250,9 @@ CREATE TABLE dbo.thanh_toan (
     CONSTRAINT FK_tt_dat FOREIGN KEY (ma_dat) REFERENCES dbo.dat_lich(ma_dat),
     CONSTRAINT CK_tt_so_tien CHECK (so_tien > 0),
     CONSTRAINT CK_tt_trang_thai
-        CHECK (trang_thai IN ('CHO_XU_LY', 'THANH_CONG', 'THAT_BAI', 'HOAN_TIEN')),
+        CHECK (trang_thai IN ('CHO_XU_LY', 'THANH_CONG', 'THAT_BAI')),
     CONSTRAINT CK_tt_trang_thai_hoan
-        CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('KHONG_HOAN', 'HOAN_MOT_PHAN', 'HOAN_TOAN')),
+        CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('KHONG_AP_DUNG', 'CHO_HOAN', 'DANG_XU_LY', 'HOAN_THANH', 'HOAN_THAT_BAI')),
     CONSTRAINT CK_tt_so_tien_hoan
         CHECK (so_tien_hoan IS NULL OR (so_tien_hoan >= 0 AND so_tien_hoan <= so_tien))
 );

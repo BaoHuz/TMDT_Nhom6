@@ -7,6 +7,7 @@ import com.poolbooking.exception.*;
 import com.poolbooking.repository.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,7 +18,8 @@ public class AdminService {
     private final DatLichRepository bookings; private final ThanhToanRepository payments; private final CheckInRepository checkIns;
     private final LichDichVuRepository schedules; private final DichVuRepository services; private final KhuVucRepository areas;
     private final HoBoiRepository pools; private final TaiKhoanRepository users; private final KhachHangRepository customers; private final PasswordEncoder encoder;
-    public AdminService(DatLichRepository b,ThanhToanRepository p,CheckInRepository c,LichDichVuRepository s,DichVuRepository d,KhuVucRepository a,HoBoiRepository h,TaiKhoanRepository u,KhachHangRepository cs,PasswordEncoder e){bookings=b;payments=p;checkIns=c;schedules=s;services=d;areas=a;pools=h;users=u;customers=cs;encoder=e;}
+    private final ApplicationEventPublisher eventPublisher;
+    public AdminService(DatLichRepository b,ThanhToanRepository p,CheckInRepository c,LichDichVuRepository s,DichVuRepository d,KhuVucRepository a,HoBoiRepository h,TaiKhoanRepository u,KhachHangRepository cs,PasswordEncoder e,ApplicationEventPublisher events){bookings=b;payments=p;checkIns=c;schedules=s;services=d;areas=a;pools=h;users=u;customers=cs;encoder=e;eventPublisher=events;}
 
     @Transactional(readOnly=true) public List<DatLich> bookings(){return bookings.findAll();}
     @Transactional(readOnly=true) public List<HoBoi> pools(){return pools.findAll();}
@@ -38,15 +40,18 @@ public class AdminService {
         List<DatLich> bList=bookings.findByMaLich(id); String r=reason==null||reason.isBlank()?"Ban quản lý hủy ca":reason.trim();
         for(DatLich b:bList){
             if(b.trangThai==TrangThaiDatLich.CHO_THANH_TOAN){
-                b.trangThai=TrangThaiDatLich.DA_HUY; b.lyDoHuy=r; b.thoiGianHuy=java.time.LocalDateTime.now();
+                b.trangThai=TrangThaiDatLich.DA_HUY; b.lyDoHuy=r; b.thoiGianHuy=java.time.LocalDateTime.now(); b.thoiDiemBatDauTinhHoan=java.time.LocalDateTime.of(x.ngay,x.gioBatDau);
                 b.tyLeHoan=BigDecimal.ZERO; b.soTienHoan=BigDecimal.ZERO; bookings.save(b);
             } else if(b.trangThai==TrangThaiDatLich.DA_XAC_NHAN&&!checkIns.existsByMaDat(b.maDat)){
-                b.trangThai=TrangThaiDatLich.DA_HUY; b.lyDoHuy=r; b.thoiGianHuy=java.time.LocalDateTime.now();
+                b.trangThai=TrangThaiDatLich.DA_HUY; b.lyDoHuy=r; b.thoiGianHuy=java.time.LocalDateTime.now(); b.thoiDiemBatDauTinhHoan=java.time.LocalDateTime.of(x.ngay,x.gioBatDau);
                 b.tyLeHoan=BigDecimal.valueOf(100); b.soTienHoan=b.tongTien; bookings.save(b);
                 payments.findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc(b.maDat,TrangThaiThanhToan.THANH_CONG).ifPresent(payment -> {
                     if(payment.soTienHoan==null||payment.soTienHoan.compareTo(b.tongTien)<0){
-                        payment.soTienHoan=b.tongTien; payment.thoiGianHoan=java.time.LocalDateTime.now();
-                        payment.trangThaiHoan="HOAN_TOAN"; payment.maGiaoDichHoan="REF-"+UUID.randomUUID(); payments.save(payment);
+                        payment.soTienHoan=b.tongTien; payment.thoiGianHoan=null;
+                        payment.trangThaiHoan=TrangThaiHoanTien.CHO_HOAN;
+                        if(payment.maGiaoDichHoan==null) payment.maGiaoDichHoan=UUID.randomUUID().toString().replace("-", "");
+                        payments.save(payment);
+                        if("VNPAY".equalsIgnoreCase(payment.phuongThuc)) eventPublisher.publishEvent(new RefundRequestedEvent(payment.maTt));
                     }
                 });
             }

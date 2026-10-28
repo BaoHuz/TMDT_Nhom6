@@ -1,6 +1,7 @@
 package com.poolbooking.entity;
 
 import com.poolbooking.enums.TrangThaiThanhToan;
+import com.poolbooking.enums.TrangThaiHoanTien;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,9 +14,10 @@ public class ThanhToan {
     @Column(name = "so_tien", nullable = false, precision = 18, scale = 2) public BigDecimal soTien;
     @Column(name = "phuong_thuc", nullable = false) public String phuongThuc;
     @Column(name = "ma_giao_dich", unique = true) public String maGiaoDich;
+    @Column(name = "ma_giao_dich_vnpay") public String maGiaoDichVnpay;
     @Column(name = "thoi_diem", nullable = false) public LocalDateTime thoiDiem = LocalDateTime.now();
     @Enumerated(EnumType.STRING) @Column(name = "trang_thai", nullable = false) public TrangThaiThanhToan trangThai;
-    @Column(name = "trang_thai_hoan") public String trangThaiHoan;
+    @Enumerated(EnumType.STRING) @Column(name = "trang_thai_hoan") public TrangThaiHoanTien trangThaiHoan;
     @Column(name = "so_tien_hoan", precision = 18, scale = 2) public BigDecimal soTienHoan;
     @Column(name = "thoi_gian_hoan") public LocalDateTime thoiGianHoan;
     @Column(name = "ma_giao_dich_hoan") public String maGiaoDichHoan;

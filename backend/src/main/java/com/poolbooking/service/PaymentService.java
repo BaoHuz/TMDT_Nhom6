@@ -67,6 +67,7 @@ public class PaymentService {
         if (success && booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN
                 && booking.hanThanhToan != null && booking.hanThanhToan.isAfter(LocalDateTime.now())) {
             payment.trangThai = TrangThaiThanhToan.THANH_CONG;
+            payment.maGiaoDichVnpay=params.get("vnp_TransactionNo");
             booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
             booking.maVeQr = "QR-" + booking.maDat;
             bookings.save(booking);

@@ -203,7 +203,8 @@ class BookingServiceTest {
         assertThat(res.tyLeHoan()).isEqualByComparingTo(BigDecimal.valueOf(100));
         assertThat(res.soTienHoan()).isEqualByComparingTo(BigDecimal.valueOf(100000));
         assertThat(schedule.soChoCon).isEqualTo(17); // returned 2 spots
-        assertThat(payment.trangThaiHoan).isEqualTo("HOAN_TOAN");
+        assertThat(payment.trangThaiHoan).isEqualTo(TrangThaiHoanTien.CHO_HOAN);
+        assertThat(payment.thoiGianHoan).isNull();
         assertThat(payment.soTienHoan).isEqualByComparingTo(BigDecimal.valueOf(100000));
         verify(payments).save(payment);
     }

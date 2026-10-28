@@ -201,6 +201,7 @@ export default function BookingDetailPage() {
               <p><b>Lý do:</b> {booking.lyDoHuy || 'Không có lý do cụ thể'}</p>
               <p><b>Tỷ lệ hoàn tiền:</b> {booking.tyLeHoan}%</p>
               <p><b>Số tiền hoàn lại:</b> <b style={{ color: 'var(--primary-dark)' }}>{money(booking.soTienHoan)}</b></p>
+              <p><b>Trạng thái hoàn tiền:</b> {statusText(booking.trangThaiHoanTien)}</p>
             </div>
           )}
 

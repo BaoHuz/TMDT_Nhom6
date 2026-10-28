@@ -3,6 +3,7 @@ package com.poolbooking.service;
 import com.poolbooking.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -19,6 +20,43 @@ public class VnPayGateway {
     @Value("${app.vnpay.tmn-code:}") private String tmnCode;
     @Value("${app.vnpay.hash-secret:}") private String hashSecret;
     @Value("${vnpay.vnp_ReturnUrl:http://localhost:8080/api/payments/vnpay/return}") private String returnUrl;
+    @Value("${vnpay.vnp_ApiUrl:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}") private String apiUrl;
+    private final RestClient http = RestClient.create();
+
+    public record RefundResult(boolean accepted, String responseCode, String transactionStatus, String transactionNo) {}
+
+    public RefundResult refund(String requestId, String txnRef, String amount, boolean fullRefund, String transactionNo,
+                               String transactionDate, String orderInfo, String createdBy, String ipAddress) {
+        requireConfiguration();
+        String createDate=java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        String ip=ipAddress==null||ipAddress.isBlank()?"127.0.0.1":ipAddress;
+        Map<String,Object> body=new LinkedHashMap<>();
+        body.put("vnp_RequestId",requestId); body.put("vnp_Version","2.1.0"); body.put("vnp_Command","refund");
+        body.put("vnp_TmnCode",tmnCode); body.put("vnp_TransactionType",fullRefund?"02":"03");
+        body.put("vnp_TxnRef",txnRef); body.put("vnp_Amount",amount);
+        if(transactionNo!=null&&!transactionNo.isBlank()) body.put("vnp_TransactionNo",transactionNo);
+        body.put("vnp_TransactionDate",transactionDate); body.put("vnp_CreateBy",createdBy); body.put("vnp_CreateDate",createDate);
+        body.put("vnp_IpAddr",ip); body.put("vnp_OrderInfo",orderInfo);
+        String signed=String.join("|",requestId,"2.1.0","refund",tmnCode,fullRefund?"02":"03",txnRef,amount,
+                transactionNo==null?"":transactionNo,transactionDate,createdBy,createDate,ip,orderInfo);
+        body.put("vnp_SecureHash",hmacSha512(signed));
+        Map response=http.post().uri(apiUrl).contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(body).retrieve().body(Map.class);
+        if(response==null) throw new BusinessException("VNPay không trả kết quả hoàn tiền");
+        String code=String.valueOf(response.getOrDefault("vnp_ResponseCode",""));
+        String status=String.valueOf(response.getOrDefault("vnp_TransactionStatus",""));
+        String responseSignature=String.valueOf(response.getOrDefault("vnp_SecureHash",""));
+        String responseData=String.join("|",String.valueOf(response.getOrDefault("vnp_ResponseId","")),
+                String.valueOf(response.getOrDefault("vnp_Command","refund")),code,
+                String.valueOf(response.getOrDefault("vnp_Message","")),tmnCode,txnRef,amount,
+                String.valueOf(response.getOrDefault("vnp_BankCode","")),
+                String.valueOf(response.getOrDefault("vnp_PayDate","")),
+                String.valueOf(response.getOrDefault("vnp_TransactionNo","")),
+                String.valueOf(response.getOrDefault("vnp_TransactionType","")),
+                status,String.valueOf(response.getOrDefault("vnp_OrderInfo",orderInfo)));
+        if(responseSignature.isBlank()||!MessageDigest.isEqual(hmacSha512(responseData).toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII),responseSignature.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII)))
+            throw new BusinessException("Chữ ký phản hồi hoàn tiền VNPay không hợp lệ");
+        return new RefundResult("00".equals(code),code,status,String.valueOf(response.getOrDefault("vnp_TransactionNo","")));
+    }
 
     public String createPaymentUrl(String txnRef, BigDecimal amount, String orderInfo, String ipAddress,
                                    java.time.LocalDateTime createdAt, java.time.LocalDateTime expiresAt) {

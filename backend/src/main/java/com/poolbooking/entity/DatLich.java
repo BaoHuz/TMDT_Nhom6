@@ -20,6 +20,7 @@ public class DatLich {
     @Enumerated(EnumType.STRING) @Column(name = "trang_thai", nullable = false) public TrangThaiDatLich trangThai;
     @Column(name = "ly_do_huy") public String lyDoHuy;
     @Column(name = "thoi_gian_huy") public LocalDateTime thoiGianHuy;
+    @Column(name = "thoi_diem_bat_dau_tinh_hoan") public LocalDateTime thoiDiemBatDauTinhHoan;
     @Column(name = "ty_le_hoan", precision = 5, scale = 2) public BigDecimal tyLeHoan;
     @Column(name = "so_tien_hoan", precision = 18, scale = 2) public BigDecimal soTienHoan;
 }
