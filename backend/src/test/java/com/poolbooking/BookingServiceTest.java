@@ -128,6 +128,7 @@ class BookingServiceTest {
         schedule.maLich = "L-FUTURE";
         schedule.ngay = LocalDate.now().plusDays(3);
         schedule.gioBatDau = LocalTime.of(10, 0);
+        schedule.gioKetThuc = LocalTime.of(11, 30);
 
         DatLich booking = new DatLich();
         booking.maDat = "DL-01";
@@ -150,6 +151,94 @@ class BookingServiceTest {
     }
 
     @Test
+    void customerCancelPreview_SameDayBeforeStart_Refunds50Percent() {
+        CancellationPreviewResponse preview = previewForSchedule(
+            LocalDate.now(), LocalTime.of(23, 59), LocalTime.MAX
+        );
+
+        assertThat(preview.eligible()).isTrue();
+        assertThat(preview.refundRate()).isEqualByComparingTo(BigDecimal.valueOf(50));
+        assertThat(preview.refundAmount()).isEqualByComparingTo(BigDecimal.valueOf(50000));
+        assertThat(preview.message()).contains("trong ngày");
+    }
+
+    @Test
+    void customerCancelPreview_DuringSchedule_EligibleWithoutRefund() {
+        CancellationPreviewResponse preview = previewForSchedule(
+            LocalDate.now(), LocalTime.MIN, LocalTime.MAX
+        );
+
+        assertThat(preview.eligible()).isTrue();
+        assertThat(preview.refundRate()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(preview.refundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(preview.message()).contains("đang diễn ra");
+    }
+
+    @Test
+    void customerCancel_DuringSchedule_DoesNotReleaseCapacity() {
+        TaiKhoan user = new TaiKhoan();
+        user.maTk = "TK-1";
+        user.tenDangNhap = "customer1";
+        KhachHang customer = new KhachHang();
+        customer.maKh = "KH-1";
+        customer.maTk = "TK-1";
+
+        LichDichVu schedule = new LichDichVu();
+        schedule.maLich = "L-ACTIVE";
+        schedule.ngay = LocalDate.now();
+        schedule.gioBatDau = LocalTime.MIN;
+        schedule.gioKetThuc = LocalTime.MAX;
+        schedule.sucChua = 20;
+        schedule.soChoCon = 5;
+        schedule.trangThai = TrangThaiLich.MO;
+
+        DatLich booking = new DatLich();
+        booking.maDat = "DL-ACTIVE";
+        booking.maKh = "KH-1";
+        booking.maLich = "L-ACTIVE";
+        booking.soNguoi = 2;
+        booking.tongTien = BigDecimal.valueOf(100000);
+        booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
+
+        when(users.findByTenDangNhap("customer1")).thenReturn(Optional.of(user));
+        when(customers.findByMaTk("TK-1")).thenReturn(Optional.of(customer));
+        when(bookings.lockById("DL-ACTIVE")).thenReturn(Optional.of(booking));
+        when(schedules.findById("L-ACTIVE")).thenReturn(Optional.of(schedule));
+        when(schedules.lockById("L-ACTIVE")).thenReturn(Optional.of(schedule));
+        when(checkIns.existsByMaDat("DL-ACTIVE")).thenReturn(false);
+        when(payments.findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc(
+            "DL-ACTIVE", TrangThaiThanhToan.THANH_CONG
+        )).thenReturn(Optional.empty());
+        when(payments.findFirstByMaDatOrderByThoiDiemDesc("DL-ACTIVE")).thenReturn(Optional.empty());
+        when(bookings.save(any(DatLich.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(catalog.schedule(schedule)).thenReturn(new ScheduleResponse(
+            "L-ACTIVE", "DV-01", "Vé người lớn", BigDecimal.valueOf(50000),
+            "KV-01", "Khu người lớn", "HB-01", "Hồ Thảo Điền",
+            schedule.ngay, schedule.gioBatDau, schedule.gioKetThuc, 20, 5, "MO"
+        ));
+
+        BookingDetailResponse result = bookingService.cancel("customer1", "DL-ACTIVE", "Đổi kế hoạch");
+
+        assertThat(result.trangThai()).isEqualTo("DA_HUY");
+        assertThat(result.tyLeHoan()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.soTienHoan()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(schedule.soChoCon).isEqualTo(5);
+        verify(schedules).save(schedule);
+    }
+
+    @Test
+    void customerCancelPreview_AfterScheduleEnded_CannotCancel() {
+        CancellationPreviewResponse preview = previewForSchedule(
+            LocalDate.now().minusDays(1), LocalTime.MIN, LocalTime.MAX
+        );
+
+        assertThat(preview.eligible()).isFalse();
+        assertThat(preview.refundRate()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(preview.refundAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(preview.message()).contains("đã kết thúc");
+    }
+
+    @Test
     void customerCancel_Success_UpdatesStatusAndRefund() {
         TaiKhoan user = new TaiKhoan();
         user.maTk = "TK-1";
@@ -163,6 +252,7 @@ class BookingServiceTest {
         schedule.maLich = "L-FUTURE";
         schedule.ngay = LocalDate.now().plusDays(2);
         schedule.gioBatDau = LocalTime.of(10, 0);
+        schedule.gioKetThuc = LocalTime.of(11, 30);
         schedule.sucChua = 20;
         schedule.soChoCon = 15;
         schedule.trangThai = TrangThaiLich.MO;
@@ -206,5 +296,36 @@ class BookingServiceTest {
         assertThat(payment.trangThaiHoan).isEqualTo("HOAN_TOAN");
         assertThat(payment.soTienHoan).isEqualByComparingTo(BigDecimal.valueOf(100000));
         verify(payments).save(payment);
+    }
+
+    private CancellationPreviewResponse previewForSchedule(LocalDate date, LocalTime startsAt, LocalTime endsAt) {
+        TaiKhoan user = new TaiKhoan();
+        user.maTk = "TK-1";
+        user.tenDangNhap = "customer1";
+
+        KhachHang customer = new KhachHang();
+        customer.maKh = "KH-1";
+        customer.maTk = "TK-1";
+
+        LichDichVu schedule = new LichDichVu();
+        schedule.maLich = "L-PREVIEW";
+        schedule.ngay = date;
+        schedule.gioBatDau = startsAt;
+        schedule.gioKetThuc = endsAt;
+
+        DatLich booking = new DatLich();
+        booking.maDat = "DL-PREVIEW";
+        booking.maKh = "KH-1";
+        booking.maLich = "L-PREVIEW";
+        booking.tongTien = BigDecimal.valueOf(100000);
+        booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
+
+        when(users.findByTenDangNhap("customer1")).thenReturn(Optional.of(user));
+        when(customers.findByMaTk("TK-1")).thenReturn(Optional.of(customer));
+        when(bookings.findById("DL-PREVIEW")).thenReturn(Optional.of(booking));
+        when(schedules.findById("L-PREVIEW")).thenReturn(Optional.of(schedule));
+        when(checkIns.existsByMaDat("DL-PREVIEW")).thenReturn(false);
+
+        return bookingService.cancelPreview("customer1", "DL-PREVIEW");
     }
 }

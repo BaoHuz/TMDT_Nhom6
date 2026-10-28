@@ -274,7 +274,7 @@ export default function BookingDetailPage() {
                   <div className="refund-summary-box">
                     <div className="refund-row">
                       <span>Thời gian còn lại đến ca bơi:</span>
-                      <b>{cancelPreview.hoursRemaining} giờ</b>
+                      <b>{cancelPreview.hoursRemaining < 0 ? 'Ca đang diễn ra' : `${cancelPreview.hoursRemaining} giờ`}</b>
                     </div>
                     <div className="refund-row">
                       <span>Tỷ lệ hoàn tiền theo quy định:</span>

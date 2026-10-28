@@ -92,10 +92,10 @@ export default function ScheduleDetailPage() {
             <h3>Quy định & Chính sách hủy vé</h3>
             <ul>
               <li>Check-in mở trước giờ bắt đầu ca bơi 15 phút và đóng khi kết thúc ca.</li>
-              <li>Hủy trước ca bơi <b>≥ 24 giờ</b>: Hoàn tiền <b>100%</b> giá trị vé.</li>
-              <li>Hủy trước ca bơi từ <b>6 đến dưới 24 giờ</b>: Hoàn tiền <b>50%</b> giá trị vé.</li>
-              <li>Hủy trước ca bơi <b>dưới 6 giờ</b> hoặc sau khi ca bắt đầu: Không hoàn tiền.</li>
-              <li>Vé đã check-in không thể hủy.</li>
+              <li>Hủy trước ngày bơi: Hoàn tiền <b>100%</b> giá trị vé.</li>
+              <li>Hủy trong ngày bơi, trước giờ bắt đầu: Hoàn tiền <b>50%</b> giá trị vé.</li>
+              <li>Hủy khi ca bơi đang diễn ra: Không hoàn tiền.</li>
+              <li>Sau khi ca bơi kết thúc hoặc vé đã check-in: Không thể hủy.</li>
             </ul>
           </div>
         </div>
