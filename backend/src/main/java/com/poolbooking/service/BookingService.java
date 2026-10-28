@@ -55,11 +55,15 @@ public class BookingService {
 
     @Transactional
     public BookingDetailResponse cancel(String username,String id,String reason){
+        DatLich existing=bookings.findById(id).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));
+        assertOwner(username,existing);
+        LichDichVu schedule=schedules.lockById(existing.maLich)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
         DatLich booking=bookings.lockById(id).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));
         assertOwner(username,booking);
         if(booking.trangThai==TrangThaiDatLich.DA_HUY) return detail(booking);
-        CancellationPreviewResponse p=preview(booking); if(!p.eligible()) throw new BusinessException(p.message());
-        LichDichVu schedule=schedules.lockById(booking.maLich).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
+        CancellationPreviewResponse p=preview(booking,schedule,LocalDateTime.now());
+        if(!p.eligible()) throw new BusinessException(p.message());
         booking.trangThai=TrangThaiDatLich.DA_HUY; booking.lyDoHuy=reason==null?null:reason.trim(); booking.thoiGianHuy=LocalDateTime.now();
         booking.tyLeHoan=p.refundRate(); booking.soTienHoan=p.refundAmount();
         if(p.refundRate().signum()>0){
@@ -67,9 +71,16 @@ public class BookingService {
             if(schedule.trangThai==TrangThaiLich.HET_CHO) schedule.trangThai=TrangThaiLich.MO;
         }
         payments.findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc(id,TrangThaiThanhToan.THANH_CONG).ifPresent(payment -> {
-            payment.soTienHoan=p.refundAmount(); payment.thoiGianHoan=LocalDateTime.now();
-            payment.trangThaiHoan=p.refundRate().compareTo(BigDecimal.valueOf(100))==0?"HOAN_TOAN":p.refundRate().signum()>0?"HOAN_MOT_PHAN":"KHONG_HOAN";
-            if(p.refundAmount().signum()>0) payment.maGiaoDichHoan="REF-"+UUID.randomUUID(); payments.save(payment);
+            payment.soTienHoan=p.refundAmount();
+            payment.trangThaiHoan=p.refundAmount().signum()>0?"CHO_HOAN":"KHONG_HOAN";
+            if(p.refundAmount().signum()>0){
+                payment.thoiGianHoan=LocalDateTime.now();
+                payment.maGiaoDichHoan="REF-REQ-"+UUID.randomUUID();
+            } else {
+                payment.thoiGianHoan=null;
+                payment.maGiaoDichHoan=null;
+            }
+            payments.save(payment);
         });
         schedules.save(schedule); return detail(bookings.save(booking));
     }
@@ -79,20 +90,26 @@ public class BookingService {
 
     private CancellationPreviewResponse preview(DatLich b){
         if(b.trangThai==TrangThaiDatLich.DA_HUY) return new CancellationPreviewResponse(false,0,nz(b.tyLeHoan),nz(b.soTienHoan),"Đơn đã được hủy trước đó");
+        LichDichVu s=schedules.findById(b.maLich).orElseThrow();
+        return preview(b,s,LocalDateTime.now());
+    }
+
+    private CancellationPreviewResponse preview(DatLich b,LichDichVu s,LocalDateTime now){
         if(checkIns.existsByMaDat(b.maDat)||b.trangThai==TrangThaiDatLich.DA_CHECK_IN) return denied("Đơn đã check-in");
         if(b.trangThai!=TrangThaiDatLich.CHO_THANH_TOAN&&b.trangThai!=TrangThaiDatLich.DA_XAC_NHAN) return denied("Đơn không thể hủy ở trạng thái hiện tại");
-        LichDichVu s=schedules.findById(b.maLich).orElseThrow();
-        LocalDateTime now=LocalDateTime.now();
         LocalDateTime startsAt=LocalDateTime.of(s.ngay,s.gioBatDau);
         LocalDateTime endsAt=LocalDateTime.of(s.ngay,s.gioKetThuc);
         long hours=ChronoUnit.HOURS.between(now,startsAt);
         if(!now.isBefore(endsAt)) return new CancellationPreviewResponse(false,hours,BigDecimal.ZERO,BigDecimal.ZERO,"Ca bơi đã kết thúc, không thể hủy vé");
         boolean duringSession=!now.isBefore(startsAt);
-        BigDecimal rate=duringSession?BigDecimal.ZERO:now.toLocalDate().isBefore(s.ngay)?BigDecimal.valueOf(100):BigDecimal.valueOf(50);
+        Duration timeUntilStart=Duration.between(now,startsAt);
+        BigDecimal rate=duringSession||timeUntilStart.compareTo(Duration.ofHours(6))<0?BigDecimal.ZERO
+            :timeUntilStart.compareTo(Duration.ofHours(24))<0?BigDecimal.valueOf(50):BigDecimal.valueOf(100);
         BigDecimal amount=b.trangThai==TrangThaiDatLich.DA_XAC_NHAN?b.tongTien.multiply(rate).divide(BigDecimal.valueOf(100),2,RoundingMode.HALF_UP):BigDecimal.ZERO;
         String message=duringSession?"Ca bơi đang diễn ra: hủy vé không được hoàn tiền"
-            :rate.compareTo(BigDecimal.valueOf(100))==0?"Hủy trước ngày bơi: được hoàn 100% tiền vé"
-            :"Hủy trong ngày, trước giờ bắt đầu: được hoàn 50% tiền vé";
+            :rate.compareTo(BigDecimal.valueOf(100))==0?"Hủy trước ca bơi từ 24 giờ: được hoàn 100% tiền vé"
+            :rate.compareTo(BigDecimal.valueOf(50))==0?"Hủy trước ca bơi từ 6 đến dưới 24 giờ: được hoàn 50% tiền vé"
+            :"Hủy trước ca bơi dưới 6 giờ: không được hoàn tiền";
         return new CancellationPreviewResponse(true,hours,rate,amount,message);
     }
     private CancellationPreviewResponse denied(String m){return new CancellationPreviewResponse(false,0,BigDecimal.ZERO,BigDecimal.ZERO,m);}
@@ -118,5 +135,18 @@ public class BookingService {
         });
     }
 
-    private BookingDetailResponse detail(DatLich b){ScheduleResponse s=catalog.schedule(schedules.findById(b.maLich).orElseThrow());String payment=payments.findFirstByMaDatOrderByThoiDiemDesc(b.maDat).map(x->x.trangThai.name()).orElse("CHUA_THANH_TOAN");return new BookingDetailResponse(b.maDat,b.maLich,s.dichVu(),s.hoBoi(),s.khuVuc(),s.ngay(),s.gioBatDau(),s.gioKetThuc(),b.soNguoi,b.donGiaTaiDat,b.tongTien,b.trangThai.name(),payment,b.maVeQr,b.lyDoHuy,b.thoiGianHuy,b.tyLeHoan,b.soTienHoan,b.hanThanhToan);}
+    private BookingDetailResponse detail(DatLich b){
+        ScheduleResponse s=catalog.schedule(schedules.findById(b.maLich).orElseThrow());
+        String payment=payments.findFirstByMaDatOrderByThoiDiemDesc(b.maDat)
+            .map(x->x.trangThai.name()).orElse("CHUA_THANH_TOAN");
+        ThanhToan refundPayment=payments.findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc(
+            b.maDat,TrangThaiThanhToan.THANH_CONG).orElse(null);
+        String refund=refundPayment==null||refundPayment.trangThaiHoan==null
+            ?"KHONG_AP_DUNG":refundPayment.trangThaiHoan;
+        return new BookingDetailResponse(b.maDat,b.maLich,s.dichVu(),s.hoBoi(),s.khuVuc(),s.ngay(),
+            s.gioBatDau(),s.gioKetThuc(),b.soNguoi,b.donGiaTaiDat,b.tongTien,b.trangThai.name(),
+            payment,refund,refundPayment==null?null:refundPayment.thoiGianHoan,
+            refundPayment==null?null:refundPayment.maGiaoDichHoan,
+            b.maVeQr,b.lyDoHuy,b.thoiGianHuy,b.tyLeHoan,b.soTienHoan,b.hanThanhToan);
+    }
 }

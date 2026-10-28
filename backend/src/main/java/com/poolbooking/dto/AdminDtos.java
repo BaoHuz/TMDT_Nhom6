@@ -13,4 +13,8 @@ public final class AdminDtos {
     public record StaffRequest(@NotBlank String username,@NotBlank @Email String email,@NotBlank @Size(min=8,max=72) String password,@NotBlank String fullName) {}
     public record CancelScheduleRequest(String reason) {}
     public record AccountResponse(String maTk,String username,String email,String role,String status,LocalDateTime createdAt) {}
+    public record BookingResponse(String maDat,String maKh,String maLich,int soNguoi,BigDecimal donGiaTaiDat,
+        BigDecimal tongTien,String trangThai,String trangThaiThanhToan,String trangThaiHoanTien,
+        String maVeQr,LocalDateTime ngayDat,String lyDoHuy,LocalDateTime thoiGianHuy,
+        BigDecimal tyLeHoan,BigDecimal soTienHoan,LocalDateTime thoiGianGhiNhanHoan,String maYeuCauHoan) {}
 }

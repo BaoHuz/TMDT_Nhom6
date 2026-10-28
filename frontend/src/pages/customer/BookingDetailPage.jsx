@@ -200,7 +200,17 @@ export default function BookingDetailPage() {
               <p><b>Thời gian hủy:</b> {booking.thoiGianHuy ? new Date(booking.thoiGianHuy).toLocaleString('vi-VN') : '—'}</p>
               <p><b>Lý do:</b> {booking.lyDoHuy || 'Không có lý do cụ thể'}</p>
               <p><b>Tỷ lệ hoàn tiền:</b> {booking.tyLeHoan}%</p>
-              <p><b>Số tiền hoàn lại:</b> <b style={{ color: 'var(--primary-dark)' }}>{money(booking.soTienHoan)}</b></p>
+              <p><b>Trạng thái hoàn tiền:</b> {statusText(booking.trangThaiHoanTien)}</p>
+              <p><b>Số tiền hoàn theo chính sách:</b> <b style={{ color: 'var(--primary-dark)' }}>{money(booking.soTienHoan)}</b></p>
+              {booking.trangThaiHoanTien === 'CHO_HOAN' && (
+                <>
+                  <p><b>Thời gian ghi nhận yêu cầu:</b> {booking.thoiGianGhiNhanHoan ? new Date(booking.thoiGianGhiNhanHoan).toLocaleString('vi-VN') : '—'}</p>
+                  <p><b>Mã yêu cầu hoàn:</b> <code>{booking.maYeuCauHoan || '—'}</code></p>
+                </>
+              )}
+              {booking.trangThaiHoanTien === 'CHO_HOAN' && (
+                <p>Yêu cầu hoàn tiền đã được ghi nhận; trạng thái này chưa xác nhận tiền đã chuyển về tài khoản.</p>
+              )}
             </div>
           )}
 
@@ -281,7 +291,7 @@ export default function BookingDetailPage() {
                       <b style={{ color: 'var(--primary-dark)', fontSize: '1.1rem' }}>{cancelPreview.refundRate}%</b>
                     </div>
                     <div className="refund-row">
-                      <span>Số tiền dự kiến hoàn lại:</span>
+                      <span>Số tiền hoàn theo chính sách:</span>
                       <b style={{ color: 'var(--primary-dark)', fontSize: '1.2rem' }}>{money(cancelPreview.refundAmount)}</b>
                     </div>
                     <p className="refund-policy-hint">{cancelPreview.message}</p>

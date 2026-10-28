@@ -92,7 +92,9 @@ $env:FRONTEND_URL="http://localhost:5173"
 
 VNPay cần gọi được IPN tại `https://ten-mien-cong-khai/api/payments/vnpay/ipn`; cấu hình URL này trong portal merchant. Khi chạy local, dùng HTTPS tunnel trỏ về backend port `8080` và đặt cùng URL tunnel làm `VNPAY_RETURN_URL`. Không commit secret vào repo.
 
-Nếu dùng database đã tạo trước thay đổi hạn thanh toán, chạy `database/migration_payment_deadline.sql`. Database cũ có schema lệch thì tạo lại bằng `database/pool_booking.sql` rồi nạp `database/seed_data.sql` (script tạo schema sẽ xóa các bảng demo hiện tại).
+Nếu dùng database đã tạo trước, chạy `database/migration_payment_deadline.sql` và `database/add_pending_refund_status.sql` để cập nhật schema. Database cũ có schema lệch thì tạo lại bằng `database/pool_booking.sql` rồi nạp `database/seed_data.sql` (script tạo schema sẽ xóa các bảng demo hiện tại).
+
+Chính sách hủy khách hàng: từ 24 giờ trước ca hoàn 100%; từ 6 đến dưới 24 giờ hoàn 50%; dưới 6 giờ không hoàn; sau khi ca kết thúc hoặc đã check-in thì không hủy. Lịch được khóa và thời điểm bắt đầu hiện hành được dùng khi xác nhận hủy. Hủy ca do ADMIN ghi nhận yêu cầu hoàn 100% cho giao dịch đã thanh toán. `CHO_HOAN` lưu thời điểm ghi nhận và mã nội bộ `REF-REQ-*`; đây không phải mã hoàn tiền của VNPay và chưa chứng minh tiền đã chuyển về tài khoản.
 
 ## API chính
 
@@ -101,7 +103,8 @@ Nếu dùng database đã tạo trước thay đổi hạn thanh toán, chạy `
 - `GET /api/schedules`
 - `POST /api/bookings`
 - `GET /api/bookings/my`
-- `PUT /api/bookings/{id}/cancel`
+- `GET /api/bookings/{id}/cancel-preview`
+- `POST /api/bookings/{id}/cancel`
 - `POST /api/payments`
 - `POST /api/check-in`
 - `GET /api/admin/dashboard`

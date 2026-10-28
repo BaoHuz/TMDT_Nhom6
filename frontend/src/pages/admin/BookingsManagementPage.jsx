@@ -167,6 +167,16 @@ export default function BookingsManagementPage() {
                   </span>
                 </div>
                 <div className="info-row">
+                  <span className="info-label">Trạng thái thanh toán:</span>
+                  <span className="info-val">{statusText(selectedBooking.trangThaiThanhToan)}</span>
+                </div>
+                {selectedBooking.trangThaiHoanTien !== 'KHONG_AP_DUNG' && (
+                  <div className="info-row">
+                    <span className="info-label">Trạng thái hoàn tiền:</span>
+                    <span className="info-val">{statusText(selectedBooking.trangThaiHoanTien)}</span>
+                  </div>
+                )}
+                <div className="info-row">
                   <span className="info-label">Mã vé QR:</span>
                   <span className="info-val">
                     {selectedBooking.maVeQr ? <b>{selectedBooking.maVeQr}</b> : 'Chưa cấp'}
@@ -186,7 +196,17 @@ export default function BookingsManagementPage() {
                   <p><b>Lý do:</b> {selectedBooking.lyDoHuy || '—'}</p>
                   <p><b>Thời gian hủy:</b> {selectedBooking.thoiGianHuy ? new Date(selectedBooking.thoiGianHuy).toLocaleString('vi-VN') : '—'}</p>
                   <p><b>Tỷ lệ hoàn:</b> {selectedBooking.tyLeHoan}%</p>
-                  <p><b>Tiền hoàn:</b> {money(selectedBooking.soTienHoan)}</p>
+                  <p><b>Trạng thái hoàn tiền:</b> {statusText(selectedBooking.trangThaiHoanTien)}</p>
+                  <p><b>Số tiền hoàn theo chính sách:</b> {money(selectedBooking.soTienHoan)}</p>
+                  {selectedBooking.trangThaiHoanTien === 'CHO_HOAN' && (
+                    <>
+                      <p><b>Thời gian ghi nhận yêu cầu:</b> {selectedBooking.thoiGianGhiNhanHoan ? new Date(selectedBooking.thoiGianGhiNhanHoan).toLocaleString('vi-VN') : '—'}</p>
+                      <p><b>Mã yêu cầu hoàn:</b> <code>{selectedBooking.maYeuCauHoan || '—'}</code></p>
+                    </>
+                  )}
+                  {selectedBooking.trangThaiHoanTien === 'CHO_HOAN' && (
+                    <p>Yêu cầu hoàn tiền đang chờ xử lý; chưa xác nhận tiền đã chuyển về tài khoản.</p>
+                  )}
                 </div>
               )}
             </div>

@@ -109,7 +109,7 @@ export default function SchedulesManagementPage() {
     setCancelling(true);
     try {
       await adminService.cancelSchedule(cancelModalSchedule.maLich, cancelReason);
-      setSuccessMsg('Đã hủy ca bơi và hoàn tiền 100% cho các đơn hàng hợp lệ!');
+      setSuccessMsg('Đã hủy ca bơi và ghi nhận yêu cầu hoàn 100% cho đơn đã thanh toán. Yêu cầu đang chờ xử lý, chưa xác nhận tiền đã chuyển.');
       setCancelModalSchedule(null);
       setCancelReason('');
       loadData();
@@ -127,7 +127,7 @@ export default function SchedulesManagementPage() {
     <div className="admin-page-container">
       <div className="admin-page-header-row">
         <PageTitle eyebrow="VẬN HÀNH CA BƠI" title="Quản lý Ca bơi / Lịch dịch vụ">
-          Mở ca bơi theo ngày, giám sát số chỗ trống, đóng ca hoặc hủy ca do sự cố (hoàn tiền tự động).
+          Mở ca bơi theo ngày, giám sát số chỗ trống, đóng ca hoặc hủy ca do sự cố.
         </PageTitle>
         <button className="btn btn-primary" onClick={openCreateModal}>
           <Plus size={18} /> Mở ca bơi mới
@@ -338,7 +338,7 @@ export default function SchedulesManagementPage() {
                 <AlertCircle size={20} />
                 <div>
                   <b>Lưu ý quan trọng:</b>
-                  <p>Hành động này sẽ đóng ca <b>{cancelModalSchedule.maLich}</b>, hủy tất cả đơn đặt vé chưa check-in trong ca này và <b>hoàn tiền 100%</b> cho khách đã thanh toán.</p>
+                  <p>Hành động này sẽ đóng ca <b>{cancelModalSchedule.maLich}</b>, hủy tất cả đơn đặt vé chưa check-in và ghi nhận yêu cầu hoàn <b>100%</b> cho đơn đã thanh toán. Việc ghi nhận yêu cầu không xác nhận tiền đã được chuyển.</p>
                 </div>
               </div>
 
@@ -356,7 +356,7 @@ export default function SchedulesManagementPage() {
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setCancelModalSchedule(null)}>Hủy bỏ</button>
               <button type="button" className="btn btn-danger" disabled={cancelling} onClick={handleConfirmCancelSchedule}>
-                {cancelling ? 'Đang xử lý hoàn tiền...' : 'Xác nhận hủy ca & hoàn tiền'}
+                {cancelling ? 'Đang hủy ca...' : 'Xác nhận hủy ca'}
               </button>
             </div>
           </div>

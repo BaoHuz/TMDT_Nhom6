@@ -250,7 +250,7 @@ CREATE TABLE dbo.thanh_toan (
     CONSTRAINT CK_tt_trang_thai
         CHECK (trang_thai IN ('CHO_XU_LY', 'THANH_CONG', 'THAT_BAI', 'HOAN_TIEN')),
     CONSTRAINT CK_tt_trang_thai_hoan
-        CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('KHONG_HOAN', 'HOAN_MOT_PHAN', 'HOAN_TOAN')),
+        CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('CHO_HOAN', 'KHONG_HOAN', 'HOAN_MOT_PHAN', 'HOAN_TOAN')),
     CONSTRAINT CK_tt_so_tien_hoan
         CHECK (so_tien_hoan IS NULL OR (so_tien_hoan >= 0 AND so_tien_hoan <= so_tien))
 );

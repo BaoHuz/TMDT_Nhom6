@@ -12,7 +12,7 @@ import jakarta.validation.Valid;import org.springframework.web.bind.annotation.*
 public class AdminController {
  private final AdminService a;public AdminController(AdminService a){this.a=a;}
  @GetMapping("/dashboard") ApiResponse<Map<String,Object>> dashboard(){return ApiResponse.ok("Thành công",a.dashboard());}
- @GetMapping("/bookings") ApiResponse<List<DatLich>> bookings(){return ApiResponse.ok("Thành công",a.bookings());}
+ @GetMapping("/bookings") ApiResponse<List<BookingResponse>> bookings(){return ApiResponse.ok("Thành công",a.bookings());}
  @GetMapping("/pools") ApiResponse<List<HoBoi>> pools(){return ApiResponse.ok("Thành công",a.pools());}
  @PostMapping("/pools") ApiResponse<HoBoi> pool(@Valid @RequestBody PoolRequest r){return ApiResponse.created("Đã tạo hồ bơi",a.savePool(null,r));}
  @PutMapping("/pools/{id}") ApiResponse<HoBoi> pool(@PathVariable String id,@Valid @RequestBody PoolRequest r){return ApiResponse.ok("Đã cập nhật",a.savePool(id,r));}

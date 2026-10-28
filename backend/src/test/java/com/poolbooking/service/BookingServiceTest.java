@@ -92,7 +92,7 @@ class BookingServiceTest {
 
         assertEquals(0, schedule.soChoCon);
         assertEquals(TrangThaiLich.HET_CHO, schedule.trangThai);
-        assertEquals(BigDecimal.valueOf(50000), booking.tongTien());
+        assertEquals(BigDecimal.valueOf(50000), booking.donGiaTaiDat());
         assertEquals("L001", booking.maLich());
         verify(scheduleRepository).lockById("L001");
         verify(scheduleRepository).save(schedule);

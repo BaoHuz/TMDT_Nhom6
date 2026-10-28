@@ -11,7 +11,8 @@ public final class CustomerDtos {
         BigDecimal tongTien, String trangThai, String maVeQr) {}
     public record BookingDetailResponse(String maDat, String maLich, String dichVu, String hoBoi,
         String khuVuc, LocalDate ngay, LocalTime gioBatDau, LocalTime gioKetThuc, int soNguoi,
-        BigDecimal donGia, BigDecimal tongTien, String trangThai, String trangThaiThanhToan,
+        BigDecimal donGiaTaiDat, BigDecimal tongTien, String trangThai, String trangThaiThanhToan,
+        String trangThaiHoanTien, LocalDateTime thoiGianGhiNhanHoan, String maYeuCauHoan,
         String maVeQr, String lyDoHuy, LocalDateTime thoiGianHuy, BigDecimal tyLeHoan,
         BigDecimal soTienHoan, LocalDateTime hanThanhToan) {}
     public record CancellationPreviewResponse(boolean eligible, long hoursRemaining,
