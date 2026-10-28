@@ -14,9 +14,12 @@ import java.util.*;
 public class CatalogService {
     private final HoBoiRepository pools; private final KhuVucRepository areas;
     private final DichVuRepository services; private final LichDichVuRepository schedules;
+    private final PoolImageService poolImages;
     public CatalogService(HoBoiRepository pools, KhuVucRepository areas,
-                          DichVuRepository services, LichDichVuRepository schedules) {
+                          DichVuRepository services, LichDichVuRepository schedules,
+                          PoolImageService poolImages) {
         this.pools = pools; this.areas = areas; this.services = services; this.schedules = schedules;
+        this.poolImages = poolImages;
     }
 
     @Transactional(readOnly = true)
@@ -32,7 +35,7 @@ public class CatalogService {
                 && (x.trangThai == TrangThaiLich.MO || x.trangThai == TrangThaiLich.HET_CHO))
             .sorted(Comparator.comparing((LichDichVu x) -> x.ngay).thenComparing(x -> x.gioBatDau))
             .limit(12).map(this::schedule).toList();
-        return new PoolDetailResponse(pool(value), areaViews, upcoming);
+        return new PoolDetailResponse(pool(value), areaViews, upcoming, poolImages.list(id));
     }
 
     @Transactional(readOnly = true)

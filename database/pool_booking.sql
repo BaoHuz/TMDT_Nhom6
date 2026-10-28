@@ -2,7 +2,7 @@
     AquaFlow / PoolBooking - SQL Server schema
     MVP: Hệ thống nền tảng đặt lịch và quản lý dịch vụ hồ bơi công cộng
 
-    Phạm vi dữ liệu: 9 bảng cốt lõi
+    Phạm vi dữ liệu: 10 bảng cốt lõi
     1. tai_khoan
     2. khach_hang
     3. ho_boi
@@ -12,6 +12,7 @@
     7. dat_lich
     8. thanh_toan
     9. check_in
+    10. hinh_anh_ho_boi
 
     LƯU Ý:
     - Script này dùng cho môi trường phát triển/demo và có thể chạy lại.
@@ -38,6 +39,7 @@ IF OBJECT_ID(N'dbo.dat_lich', N'U') IS NOT NULL DROP TABLE dbo.dat_lich;
 IF OBJECT_ID(N'dbo.lich_dich_vu', N'U') IS NOT NULL DROP TABLE dbo.lich_dich_vu;
 IF OBJECT_ID(N'dbo.dich_vu', N'U') IS NOT NULL DROP TABLE dbo.dich_vu;
 IF OBJECT_ID(N'dbo.khu_vuc', N'U') IS NOT NULL DROP TABLE dbo.khu_vuc;
+IF OBJECT_ID(N'dbo.hinh_anh_ho_boi', N'U') IS NOT NULL DROP TABLE dbo.hinh_anh_ho_boi;
 IF OBJECT_ID(N'dbo.ho_boi', N'U') IS NOT NULL DROP TABLE dbo.ho_boi;
 IF OBJECT_ID(N'dbo.khach_hang', N'U') IS NOT NULL DROP TABLE dbo.khach_hang;
 IF OBJECT_ID(N'dbo.tai_khoan', N'U') IS NOT NULL DROP TABLE dbo.tai_khoan;
@@ -108,7 +110,37 @@ CREATE TABLE dbo.ho_boi (
 GO
 
 /* =========================================================
-   4. KHU VỰC
+   4. HÌNH ẢNH HỒ BƠI
+   - Chỉ lưu metadata/đường dẫn; không lưu binary trong database.
+   - Tệp vật lý: backend/uploads/pools/{maHoBoi}/
+   ========================================================= */
+CREATE TABLE dbo.hinh_anh_ho_boi (
+    ma_anh             VARCHAR(60)   NOT NULL,
+    ma_ho_boi          VARCHAR(60)   NOT NULL,
+    duong_dan          NVARCHAR(500) NOT NULL,
+    thu_tu             INT           NOT NULL CONSTRAINT DF_hinh_anh_ho_boi_thu_tu DEFAULT 0,
+    la_anh_dai_dien    BIT           NOT NULL CONSTRAINT DF_hinh_anh_ho_boi_dai_dien DEFAULT 0,
+    ngay_tao           DATETIME2     NOT NULL CONSTRAINT DF_hinh_anh_ho_boi_ngay_tao DEFAULT SYSDATETIME(),
+
+    CONSTRAINT PK_hinh_anh_ho_boi PRIMARY KEY (ma_anh),
+    CONSTRAINT FK_hinh_anh_ho_boi_ho_boi
+        FOREIGN KEY (ma_ho_boi) REFERENCES dbo.ho_boi(ma_ho_boi) ON DELETE CASCADE,
+    CONSTRAINT UQ_hinh_anh_ho_boi_duong_dan UNIQUE (duong_dan),
+    CONSTRAINT CK_hinh_anh_ho_boi_thu_tu CHECK (thu_tu >= 0)
+);
+GO
+
+CREATE INDEX IX_hinh_anh_ho_boi_ho_boi_thu_tu
+    ON dbo.hinh_anh_ho_boi(ma_ho_boi, thu_tu, ngay_tao);
+GO
+
+CREATE UNIQUE INDEX UX_hinh_anh_ho_boi_anh_dai_dien
+    ON dbo.hinh_anh_ho_boi(ma_ho_boi)
+    WHERE la_anh_dai_dien = 1;
+GO
+
+/* =========================================================
+   5. KHU VỰC
    ========================================================= */
 CREATE TABLE dbo.khu_vuc (
     ma_khu_vuc  VARCHAR(60)   NOT NULL,

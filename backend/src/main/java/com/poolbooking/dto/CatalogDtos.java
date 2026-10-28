@@ -18,5 +18,6 @@ public final class CatalogDtos {
                                    LocalDate ngay, LocalTime gioBatDau, LocalTime gioKetThuc,
                                    int sucChua, int soChoCon, String trangThai) {}
     public record PoolDetailResponse(PoolSummaryResponse pool, List<AreaResponse> areas,
-                                     List<ScheduleResponse> upcomingSchedules) {}
+                                     List<ScheduleResponse> upcomingSchedules,
+                                     List<PoolImageDtos.PoolImageResponse> images) {}
 }

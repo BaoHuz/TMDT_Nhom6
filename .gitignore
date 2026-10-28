@@ -51,3 +51,5 @@ desktop.ini
 # =========================
 *.log
 logs/
+# Runtime uploaded files
+backend/uploads/

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Waves, MapPin, Clock, Users, Calendar, ArrowLeft } from 'lucide-react';
+import { Waves, MapPin, Clock, Users, Calendar, ArrowLeft, X, ChevronLeft, ChevronRight, Images } from 'lucide-react';
 import { catalogService } from '../../services/catalogService';
 import { scheduleService } from '../../services/scheduleService';
 import ScheduleCard from '../../components/ScheduleCard';
 import { Loading, ErrorState, EmptyState } from '../../components/States';
+import { assetUrl } from '../../utils/view';
 
 export default function PoolDetailPage() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ export default function PoolDetailPage() {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -21,7 +23,12 @@ export default function PoolDetailPage() {
     ])
       .then(([poolRes, schedulesRes]) => {
         if (!mounted) return;
-        setPool(poolRes.data.data);
+        const detail = poolRes.data.data;
+        setPool({
+          ...detail.pool,
+          khuVucList: detail.areas || [],
+          images: detail.images || []
+        });
         setSchedules(schedulesRes.data.data || []);
       })
       .catch(err => {
@@ -33,6 +40,26 @@ export default function PoolDetailPage() {
 
     return () => { mounted = false; };
   }, [id]);
+
+  const images = pool?.images || [];
+  const closeLightbox = () => setLightboxIndex(null);
+  const showPrevious = () => setLightboxIndex(index => (index - 1 + images.length) % images.length);
+  const showNext = () => setLightboxIndex(index => (index + 1) % images.length);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return undefined;
+    const onKeyDown = event => {
+      if (event.key === 'Escape') closeLightbox();
+      if (event.key === 'ArrowLeft') showPrevious();
+      if (event.key === 'ArrowRight') showNext();
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [lightboxIndex, images.length]);
 
   if (loading) return <div className="section-container"><Loading /></div>;
   if (error || !pool) return <div className="section-container"><ErrorState message={error || 'Hồ bơi không tồn tại'} /></div>;
@@ -56,6 +83,30 @@ export default function PoolDetailPage() {
           </div>
         </div>
       </div>
+
+      <section className="pool-gallery" aria-label="Hình ảnh hồ bơi">
+        {images.length > 0 ? (
+          <>
+            <button className="pool-gallery-main" onClick={() => setLightboxIndex(0)} aria-label="Mở ảnh lớn">
+              <img src={assetUrl(images[0].duongDan)} alt={`${pool.tenHoBoi} - ảnh 1`} />
+            </button>
+            {images.length > 1 && (
+              <div className="pool-gallery-thumbnails">
+                {images.slice(1, 5).map((image, index) => (
+                  <button key={image.maAnh} onClick={() => setLightboxIndex(index + 1)} aria-label={`Mở ảnh ${index + 2}`}>
+                    <img src={assetUrl(image.duongDan)} alt={`${pool.tenHoBoi} - ảnh ${index + 2}`} />
+                  </button>
+                ))}
+              </div>
+            )}
+            <button className="pool-gallery-all" onClick={() => setLightboxIndex(0)}>
+              <Images size={17} /> Xem tất cả {images.length} ảnh
+            </button>
+          </>
+        ) : (
+          <div className="pool-gallery-empty"><Waves size={42} /><span>Hồ bơi chưa có hình ảnh</span></div>
+        )}
+      </section>
 
       {/* Areas in this pool */}
       <div className="detail-sub-section">
@@ -103,6 +154,25 @@ export default function PoolDetailPage() {
           </div>
         )}
       </div>
+
+      {lightboxIndex !== null && images[lightboxIndex] && (
+        <div className="pool-lightbox" role="dialog" aria-modal="true" aria-label="Xem hình ảnh hồ bơi" onMouseDown={event => event.target === event.currentTarget && closeLightbox()}>
+          <button className="lightbox-close" onClick={closeLightbox} aria-label="Đóng"><X size={26} /></button>
+          <button className="lightbox-nav lightbox-prev" onClick={showPrevious} aria-label="Ảnh trước"><ChevronLeft size={34} /></button>
+          <div className="lightbox-content">
+            <img className="lightbox-main-image" src={assetUrl(images[lightboxIndex].duongDan)} alt={`${pool.tenHoBoi} - ảnh ${lightboxIndex + 1}`} />
+            <div className="lightbox-counter">Ảnh {lightboxIndex + 1} / {images.length}</div>
+            <div className="lightbox-thumbnails">
+              {images.map((image, index) => (
+                <button key={image.maAnh} className={index === lightboxIndex ? 'active' : ''} onClick={() => setLightboxIndex(index)} aria-label={`Chọn ảnh ${index + 1}`}>
+                  <img src={assetUrl(image.duongDan)} alt="" />
+                </button>
+              ))}
+            </div>
+          </div>
+          <button className="lightbox-nav lightbox-next" onClick={showNext} aria-label="Ảnh sau"><ChevronRight size={34} /></button>
+        </div>
+      )}
     </div>
   );
 }

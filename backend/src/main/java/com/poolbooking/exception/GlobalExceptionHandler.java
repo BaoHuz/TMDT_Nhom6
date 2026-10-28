@@ -5,6 +5,8 @@ import org.springframework.http.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -30,6 +32,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ApiResponse<Void>> malformedJson(HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest().body(ApiResponse.error(400, "Dữ liệu JSON không hợp lệ"));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiResponse<Void>> uploadTooLarge(MaxUploadSizeExceededException e) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(400, "Mỗi ảnh không được vượt quá 5 MB và tổng yêu cầu không quá 50 MB"));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    ResponseEntity<ApiResponse<Void>> missingUpload(MissingServletRequestPartException e) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(400, "Vui lòng chọn ít nhất một ảnh"));
     }
 
     @ExceptionHandler(Exception.class)

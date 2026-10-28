@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Edit, Waves, Clock, MapPin, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Edit, X, CheckCircle2, AlertCircle, Images, Upload, Trash2, Star } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { Loading, ErrorState, EmptyState, PageTitle } from '../../components/States';
+import { assetUrl } from '../../utils/view';
 
 export default function PoolsManagementPage() {
   const [pools, setPools] = useState([]);
@@ -21,6 +22,11 @@ export default function PoolsManagementPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [imagePool, setImagePool] = useState(null);
+  const [poolImages, setPoolImages] = useState([]);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState('');
 
   const loadPools = () => {
     setLoading(true);
@@ -87,6 +93,69 @@ export default function PoolsManagementPage() {
     }
   };
 
+  const loadImages = async (poolId) => {
+    setImageLoading(true);
+    setImageError('');
+    try {
+      const response = await adminService.poolImages(poolId);
+      setPoolImages(response.data.data || []);
+    } catch (err) {
+      setImageError(err.response?.data?.message || 'Không thể tải danh sách ảnh.');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
+  const openImageManager = (pool) => {
+    setImagePool(pool);
+    setSelectedFiles([]);
+    loadImages(pool.maHoBoi);
+  };
+
+  const handleUploadImages = async (event) => {
+    event.preventDefault();
+    if (!selectedFiles.length) {
+      setImageError('Vui lòng chọn ít nhất một ảnh.');
+      return;
+    }
+    setImageLoading(true);
+    setImageError('');
+    try {
+      await adminService.uploadPoolImages(imagePool.maHoBoi, selectedFiles);
+      setSelectedFiles([]);
+      await loadImages(imagePool.maHoBoi);
+      setSuccessMsg('Tải ảnh hồ bơi thành công!');
+    } catch (err) {
+      setImageError(err.response?.data?.message || 'Tải ảnh thất bại.');
+      setImageLoading(false);
+    }
+  };
+
+  const handleDeleteImage = async (image) => {
+    if (!window.confirm('Xóa ảnh này khỏi hồ bơi?')) return;
+    setImageLoading(true);
+    setImageError('');
+    try {
+      await adminService.deletePoolImage(image.maAnh);
+      await loadImages(imagePool.maHoBoi);
+    } catch (err) {
+      setImageError(err.response?.data?.message || 'Xóa ảnh thất bại.');
+      setImageLoading(false);
+    }
+  };
+
+  const handleSetRepresentative = async (image) => {
+    setImageLoading(true);
+    setImageError('');
+    try {
+      await adminService.setPoolRepresentative(image.maAnh);
+      await loadImages(imagePool.maHoBoi);
+    } catch (err) {
+      setImageError(err.response?.data?.message || 'Không thể đặt ảnh đại diện.');
+      setImageLoading(false);
+    }
+  };
+
   return (
     <div className="admin-page-container">
       <div className="admin-page-header-row">
@@ -138,6 +207,9 @@ export default function PoolsManagementPage() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => openImageManager(pool)} style={{ marginRight: '.5rem' }}>
+                        <Images size={14} /> Hình ảnh
+                      </button>
                       <button className="btn btn-outline btn-sm" onClick={() => openEditModal(pool)}>
                         <Edit size={14} /> Chỉnh sửa
                       </button>
@@ -236,6 +308,54 @@ export default function PoolsManagementPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {imagePool && (
+        <div className="modal-backdrop">
+          <div className="modal-box pool-images-modal">
+            <div className="modal-header">
+              <div><h3>Hình ảnh hồ bơi</h3><small>{imagePool.tenHoBoi}</small></div>
+              <button className="btn-close" onClick={() => setImagePool(null)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              {imageError && <div className="alert-box alert-danger"><AlertCircle size={18} /><span>{imageError}</span></div>}
+              <form className="pool-image-upload" onSubmit={handleUploadImages}>
+                <label className="pool-image-file-picker">
+                  <Upload size={22} />
+                  <span>{selectedFiles.length ? `Đã chọn ${selectedFiles.length} ảnh` : 'Chọn ảnh JPG, PNG hoặc WEBP'}</span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={event => setSelectedFiles(Array.from(event.target.files).slice(0, 10))} />
+                </label>
+                <small>Tối đa 10 ảnh/lần, mỗi ảnh không quá 5 MB.</small>
+                <button className="btn btn-primary" type="submit" disabled={imageLoading || !selectedFiles.length}>
+                  <Upload size={16} /> Tải ảnh lên
+                </button>
+              </form>
+
+              {imageLoading && poolImages.length === 0 ? <Loading /> : poolImages.length === 0 ? (
+                <EmptyState message="Hồ bơi chưa có ảnh." />
+              ) : (
+                <div className="admin-pool-image-grid">
+                  {poolImages.map(image => (
+                    <div className={`admin-pool-image ${image.laAnhDaiDien ? 'representative' : ''}`} key={image.maAnh}>
+                      <img src={assetUrl(image.duongDan)} alt="" />
+                      {image.laAnhDaiDien && <span className="representative-badge"><Star size={13} fill="currentColor" /> Đại diện</span>}
+                      <div className="admin-pool-image-actions">
+                        {!image.laAnhDaiDien && (
+                          <button className="btn btn-outline btn-sm" type="button" disabled={imageLoading} onClick={() => handleSetRepresentative(image)}>
+                            <Star size={14} /> Chọn đại diện
+                          </button>
+                        )}
+                        <button className="btn btn-danger-outline btn-sm" type="button" disabled={imageLoading} onClick={() => handleDeleteImage(image)}>
+                          <Trash2 size={14} /> Xóa
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
