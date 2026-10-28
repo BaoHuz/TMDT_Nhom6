@@ -23,17 +23,13 @@ public class PaymentService {
         this.bookings = bookings; this.payments = payments; this.bookingService = bookingService; this.vnPay = vnPay;
     }
     public PaymentService(DatLichRepository bookings, ThanhToanRepository payments, BookingService bookingService) {
-        this(bookings, payments, bookingService, new VnPayGateway());
+        this(bookings, payments, bookingService, new VnPayGateway(org.springframework.web.client.RestClient.builder()));
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = BusinessException.class)
     public String createVnPayUrl(String username, String bookingId, String ipAddress) {
         DatLich owned = bookingService.owned(username, bookingId);
-        DatLich booking = bookings.lockById(owned.maDat).orElseThrow();
-        if (booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN && booking.hanThanhToan != null && !booking.hanThanhToan.isAfter(LocalDateTime.now())) {
-            bookingService.expireIfNeeded(booking);
-            throw new BusinessException("Đơn đã hết hạn thanh toán. Vui lòng đặt lại.");
-        }
+        DatLich booking = bookingService.lockForPayment(owned.maDat);
         if (booking.trangThai != TrangThaiDatLich.CHO_THANH_TOAN)
             throw new BusinessException("Đơn không ở trạng thái chờ thanh toán");
         String txnRef = "VN" + UUID.randomUUID().toString().replace("-", "");
@@ -61,18 +57,22 @@ public class PaymentService {
             if (amount.compareTo(payment.soTien) != 0) return ipnResult("04", "Invalid amount");
         } catch (NumberFormatException ex) { return ipnResult("04", "Invalid amount"); }
 
-        DatLich booking = bookings.lockById(payment.maDat).orElse(null);
-        if (booking == null) return ipnResult("01", "Order not found");
+        if (bookings.findById(payment.maDat).isEmpty()) return ipnResult("01", "Order not found");
+        DatLich booking = bookingService.lockForPayment(payment.maDat);
+        payment=payments.lockByMaGiaoDich(params.get("vnp_TxnRef")).orElse(null);
+        if (payment == null) return ipnResult("01", "Order not found");
+        if (payment.trangThai == TrangThaiThanhToan.THANH_CONG) return ipnResult("02", "Order already confirmed");
         boolean success = "00".equals(params.get("vnp_ResponseCode")) && "00".equals(params.get("vnp_TransactionStatus"));
         if (success && booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN
                 && booking.hanThanhToan != null && booking.hanThanhToan.isAfter(LocalDateTime.now())) {
             payment.trangThai = TrangThaiThanhToan.THANH_CONG;
+            payment.vnpayMaGiaoDichGoc = params.get("vnp_TransactionNo");
+            payment.vnpayThoiDiemGiaoDichGoc = params.get("vnp_PayDate");
             booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
             booking.maVeQr = "QR-" + booking.maDat;
             bookings.save(booking);
         } else {
             payment.trangThai = TrangThaiThanhToan.THAT_BAI;
-            if (booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN) bookingService.expireIfNeeded(booking);
         }
         payments.save(payment);
         return ipnResult("00", "Received");
@@ -92,11 +92,7 @@ public class PaymentService {
     @Transactional(noRollbackFor = BusinessException.class)
     public DatLich pay(String username, PaymentRequest request) {
         DatLich owned = bookingService.owned(username, request.maDat());
-        DatLich booking = bookings.lockById(owned.maDat).orElseThrow();
-        if (booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN && booking.hanThanhToan != null && !booking.hanThanhToan.isAfter(java.time.LocalDateTime.now())) {
-            bookingService.expireIfNeeded(booking);
-            throw new BusinessException("Đơn đã hết hạn thanh toán. Vui lòng đặt lại.");
-        }
+        DatLich booking = bookingService.lockForPayment(owned.maDat);
         if (booking.trangThai != TrangThaiDatLich.CHO_THANH_TOAN)
             throw new BusinessException("Đơn không ở trạng thái chờ thanh toán");
         ThanhToan payment = new ThanhToan();

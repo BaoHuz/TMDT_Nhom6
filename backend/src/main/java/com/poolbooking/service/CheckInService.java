@@ -20,12 +20,16 @@ public class CheckInService {
 
     @Transactional
     public DatLich check(String qr, String staffUsername) {
-        DatLich booking = bookings.findByMaVeQr(qr)
+        DatLich existing = bookings.findByMaVeQr(qr)
             .orElseThrow(() -> new BusinessException("Mã QR không hợp lệ"));
+        LichDichVu schedule = schedules.lockById(existing.maLich)
+            .orElseThrow(() -> new BusinessException("Không tìm thấy ca bơi"));
+        DatLich booking = bookings.lockById(existing.maDat)
+            .orElseThrow(() -> new BusinessException("Mã QR không hợp lệ"));
+        if (!qr.equals(booking.maVeQr)) throw new BusinessException("Mã QR không hợp lệ");
         if (booking.trangThai != TrangThaiDatLich.DA_XAC_NHAN)
             throw new BusinessException("Đơn chưa đủ điều kiện check-in");
         if (checkIns.existsByMaDat(booking.maDat)) throw new BusinessException("Đơn đã check-in");
-        LichDichVu schedule = schedules.findById(booking.maLich).orElseThrow();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime opens = LocalDateTime.of(schedule.ngay, schedule.gioBatDau).minusMinutes(15);
         LocalDateTime closes = LocalDateTime.of(schedule.ngay, schedule.gioKetThuc);

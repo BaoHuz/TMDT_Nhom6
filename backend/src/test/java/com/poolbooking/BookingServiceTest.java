@@ -300,14 +300,20 @@ class BookingServiceTest {
         assertThat(res.trangThai()).isEqualTo("DA_HUY");
         assertThat(res.tyLeHoan()).isEqualByComparingTo(BigDecimal.valueOf(100));
         assertThat(res.soTienHoan()).isEqualByComparingTo(BigDecimal.valueOf(100000));
+        assertThat(res.thoiDiemBatDauApDung()).isEqualTo(LocalDateTime.of(schedule.ngay,schedule.gioBatDau));
         assertThat(res.trangThaiHoanTien()).isEqualTo("CHO_HOAN");
         assertThat(res.thoiGianGhiNhanHoan()).isNotNull();
         assertThat(res.maYeuCauHoan()).startsWith("REF-REQ-");
+        assertThat(res.soTienYeuCauHoan()).isEqualByComparingTo(BigDecimal.valueOf(100000));
+        assertThat(res.soTienHoanThucTe()).isNull();
         assertThat(schedule.soChoCon).isEqualTo(17); // returned 2 spots
         assertThat(payment.trangThaiHoan).isEqualTo("CHO_HOAN");
-        assertThat(payment.soTienHoan).isEqualByComparingTo(BigDecimal.valueOf(100000));
-        assertThat(payment.thoiGianHoan).isNotNull();
-        assertThat(payment.maGiaoDichHoan).startsWith("REF-REQ-");
+        assertThat(payment.soTienYeuCauHoan).isEqualByComparingTo(BigDecimal.valueOf(100000));
+        assertThat(payment.thoiGianYeuCauHoan).isNotNull();
+        assertThat(payment.maYeuCauHoan).startsWith("REF-REQ-");
+        assertThat(payment.soTienHoan).isNull();
+        assertThat(payment.thoiGianHoan).isNull();
+        assertThat(payment.maGiaoDichHoan).isNull();
         verify(payments).save(payment);
     }
 
@@ -335,7 +341,8 @@ class BookingServiceTest {
         payment.maDat = "DL-CANCELED";
         payment.soTien = BigDecimal.valueOf(50000);
         payment.trangThai = TrangThaiThanhToan.THANH_CONG;
-        payment.soTienHoan = BigDecimal.valueOf(50000);
+        payment.soTienYeuCauHoan = BigDecimal.valueOf(50000);
+        payment.maYeuCauHoan = "REF-REQ-existing";
         payment.trangThaiHoan = "CHO_HOAN";
 
         when(users.findByTenDangNhap("customer1")).thenReturn(Optional.of(user));

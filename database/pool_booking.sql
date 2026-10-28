@@ -192,6 +192,7 @@ CREATE TABLE dbo.dat_lich (
     -- Bổ sung nghiệp vụ hủy / hoàn tiền
     ly_do_huy       NVARCHAR(255) NULL,
     thoi_gian_huy   DATETIME2     NULL,
+    thoi_diem_bat_dau_ap_dung DATETIME2 NULL,
     ty_le_hoan      DECIMAL(5,2)  NULL,
     so_tien_hoan    DECIMAL(18,2) NULL,
 
@@ -236,13 +237,19 @@ CREATE TABLE dbo.thanh_toan (
     so_tien           DECIMAL(18,2) NOT NULL,
     phuong_thuc       VARCHAR(30)   NOT NULL CONSTRAINT DF_thanh_toan_phuong_thuc DEFAULT 'MO_PHONG',
     ma_giao_dich      VARCHAR(100)  NULL,
+    vnpay_ma_giao_dich_goc VARCHAR(100) NULL,
+    vnpay_thoi_diem_giao_dich_goc VARCHAR(14) NULL,
     trang_thai        VARCHAR(20)   NOT NULL,
 
     -- Bổ sung nghiệp vụ hoàn tiền theo TH4
     trang_thai_hoan   VARCHAR(20)   NULL,
+    so_tien_yeu_cau_hoan DECIMAL(18,2) NULL,
+    thoi_gian_yeu_cau_hoan DATETIME2 NULL,
+    ma_yeu_cau_hoan  VARCHAR(60)   NULL,
     so_tien_hoan      DECIMAL(18,2) NULL,
     thoi_gian_hoan    DATETIME2     NULL,
     ma_giao_dich_hoan VARCHAR(50)   NULL,
+    ghi_chu_hoan      NVARCHAR(500) NULL,
 
     CONSTRAINT PK_thanh_toan PRIMARY KEY (ma_tt),
     CONSTRAINT FK_tt_dat FOREIGN KEY (ma_dat) REFERENCES dbo.dat_lich(ma_dat),
@@ -250,9 +257,11 @@ CREATE TABLE dbo.thanh_toan (
     CONSTRAINT CK_tt_trang_thai
         CHECK (trang_thai IN ('CHO_XU_LY', 'THANH_CONG', 'THAT_BAI', 'HOAN_TIEN')),
     CONSTRAINT CK_tt_trang_thai_hoan
-        CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('CHO_HOAN', 'KHONG_HOAN', 'HOAN_MOT_PHAN', 'HOAN_TOAN')),
+        CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('CHO_HOAN', 'DANG_XU_LY', 'KHONG_HOAN', 'HOAN_MOT_PHAN', 'HOAN_TOAN')),
     CONSTRAINT CK_tt_so_tien_hoan
-        CHECK (so_tien_hoan IS NULL OR (so_tien_hoan >= 0 AND so_tien_hoan <= so_tien))
+        CHECK (so_tien_hoan IS NULL OR (so_tien_hoan >= 0 AND so_tien_hoan <= so_tien)),
+    CONSTRAINT CK_tt_so_tien_yeu_cau_hoan
+        CHECK (so_tien_yeu_cau_hoan IS NULL OR (so_tien_yeu_cau_hoan >= 0 AND so_tien_yeu_cau_hoan <= so_tien))
 );
 GO
 
@@ -264,6 +273,11 @@ GO
 CREATE UNIQUE INDEX UX_thanh_toan_ma_giao_dich_hoan
     ON dbo.thanh_toan(ma_giao_dich_hoan)
     WHERE ma_giao_dich_hoan IS NOT NULL;
+GO
+
+CREATE UNIQUE INDEX UX_thanh_toan_ma_yeu_cau_hoan
+    ON dbo.thanh_toan(ma_yeu_cau_hoan)
+    WHERE ma_yeu_cau_hoan IS NOT NULL;
 GO
 
 /* =========================================================
@@ -306,7 +320,7 @@ GO
 
 CREATE INDEX IX_tt_ma_dat
     ON dbo.thanh_toan(ma_dat, thoi_diem DESC)
-    INCLUDE (so_tien, trang_thai, trang_thai_hoan, so_tien_hoan);
+    INCLUDE (so_tien, trang_thai, trang_thai_hoan, so_tien_yeu_cau_hoan, so_tien_hoan);
 GO
 
 PRINT N'Đã tạo xong CSDL PoolBooking với 9 bảng MVP.';

@@ -2,6 +2,7 @@ import api from '../api/axiosClient';
 export const adminService={
   dashboard:()=>api.get('/admin/dashboard'),
   bookings:()=>api.get('/admin/bookings'),
+  refundBooking:id=>api.post(`/admin/bookings/${id}/refund`),
   pools:()=>api.get('/admin/pools'),
   areas:()=>api.get('/admin/areas'),
   accounts:()=>api.get('/admin/accounts'),

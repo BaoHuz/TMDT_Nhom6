@@ -37,17 +37,20 @@ public class AdminService {
     @Transactional public LichDichVu cancelSchedule(String id,String reason){
         LichDichVu x=schedules.lockById(id).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
         x.trangThai=TrangThaiLich.DONG; schedules.save(x);
-        List<DatLich> bList=bookings.findByMaLich(id); String r=reason==null||reason.isBlank()?"Ban quản lý hủy ca":reason.trim();
+        List<DatLich> bList=bookings.lockByMaLich(id); String r=reason==null||reason.isBlank()?"Ban quản lý hủy ca":reason.trim();
         for(DatLich b:bList){
             if((b.trangThai==TrangThaiDatLich.CHO_THANH_TOAN||b.trangThai==TrangThaiDatLich.DA_XAC_NHAN)
                     && !checkIns.existsByMaDat(b.maDat)){
-                b.trangThai=TrangThaiDatLich.DA_HUY; b.lyDoHuy=r; b.thoiGianHuy=java.time.LocalDateTime.now();
+                java.time.LocalDateTime now=java.time.LocalDateTime.now();
+                b.trangThai=TrangThaiDatLich.DA_HUY; b.lyDoHuy=r; b.thoiGianHuy=now;
+                b.thoiDiemBatDauApDung=java.time.LocalDateTime.of(x.ngay,x.gioBatDau);
                 payments.findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc(b.maDat,TrangThaiThanhToan.THANH_CONG)
                     .ifPresentOrElse(payment -> {
                         b.tyLeHoan=BigDecimal.valueOf(100); b.soTienHoan=b.tongTien;
-                        payment.soTienHoan=b.tongTien; payment.trangThaiHoan="CHO_HOAN";
-                        payment.thoiGianHoan=java.time.LocalDateTime.now();
-                        payment.maGiaoDichHoan="REF-REQ-"+UUID.randomUUID(); payments.save(payment);
+                        payment.trangThaiHoan="CHO_HOAN";
+                        payment.soTienYeuCauHoan=b.tongTien;
+                        payment.thoiGianYeuCauHoan=now;
+                        payment.maYeuCauHoan="REF-REQ-"+UUID.randomUUID(); payments.save(payment);
                     }, () -> {
                         b.tyLeHoan=BigDecimal.ZERO; b.soTienHoan=BigDecimal.ZERO;
                     });
@@ -66,7 +69,34 @@ public class AdminService {
         return account(saved);
     }
     @Transactional public AccountResponse status(String id,boolean active){TaiKhoan u=users.findById(id).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản"));u.trangThai=active?"HOAT_DONG":"KHOA";return account(users.save(u));}
-    @Transactional(readOnly=true) public Map<String,Object> dashboard(){BigDecimal revenue=payments.findByTrangThai(TrangThaiThanhToan.THANH_CONG).stream().map(x->x.soTien.subtract(x.soTienHoan==null?BigDecimal.ZERO:x.soTienHoan)).reduce(BigDecimal.ZERO,BigDecimal::add);return Map.of("tongDon",bookings.count(),"doanhThu",revenue,"donDaXacNhan",bookings.countByTrangThai(TrangThaiDatLich.DA_XAC_NHAN),"donDaHuy",bookings.countByTrangThai(TrangThaiDatLich.DA_HUY),"luotCheckIn",checkIns.count(),"caDangMo",schedules.findByNgayAndTrangThai(LocalDate.now(),TrangThaiLich.MO).size());}
+    @Transactional(readOnly=true)
+    public Map<String,Object> dashboard(){
+        BigDecimal grossRevenue=BigDecimal.ZERO;
+        BigDecimal pendingRefunds=BigDecimal.ZERO;
+        BigDecimal completedRefunds=BigDecimal.ZERO;
+        for(ThanhToan payment:payments.findByTrangThai(TrangThaiThanhToan.THANH_CONG)){
+            grossRevenue=grossRevenue.add(payment.soTien);
+            if("CHO_HOAN".equals(payment.trangThaiHoan)||"DANG_XU_LY".equals(payment.trangThaiHoan)){
+                pendingRefunds=pendingRefunds.add(payment.soTienYeuCauHoan==null
+                    ?BigDecimal.ZERO:payment.soTienYeuCauHoan);
+            } else if("HOAN_MOT_PHAN".equals(payment.trangThaiHoan)
+                    || "HOAN_TOAN".equals(payment.trangThaiHoan)){
+                completedRefunds=completedRefunds.add(payment.soTienHoan==null
+                    ?BigDecimal.ZERO:payment.soTienHoan);
+            }
+        }
+        BigDecimal netRevenue=grossRevenue.subtract(pendingRefunds).subtract(completedRefunds);
+        return Map.of(
+            "tongDon",bookings.count(),
+            "doanhThu",netRevenue,
+            "tienHoanChoXuLy",pendingRefunds,
+            "tienDaHoanThucTe",completedRefunds,
+            "donDaXacNhan",bookings.countByTrangThai(TrangThaiDatLich.DA_XAC_NHAN),
+            "donDaHuy",bookings.countByTrangThai(TrangThaiDatLich.DA_HUY),
+            "luotCheckIn",checkIns.count(),
+            "caDangMo",schedules.findByNgayAndTrangThai(LocalDate.now(),TrangThaiLich.MO).size()
+        );
+    }
     private BookingResponse booking(DatLich b){
         String paymentStatus=payments.findFirstByMaDatOrderByThoiDiemDesc(b.maDat)
             .map(x->x.trangThai.name()).orElse("CHUA_THANH_TOAN");
@@ -76,8 +106,17 @@ public class AdminService {
             ?"KHONG_AP_DUNG":refundPayment.trangThaiHoan;
         return new BookingResponse(b.maDat,b.maKh,b.maLich,b.soNguoi,b.donGiaTaiDat,b.tongTien,
             b.trangThai.name(),paymentStatus,refundStatus,b.maVeQr,b.ngayDat,b.lyDoHuy,b.thoiGianHuy,
-            b.tyLeHoan,b.soTienHoan,refundPayment==null?null:refundPayment.thoiGianHoan,
-            refundPayment==null?null:refundPayment.maGiaoDichHoan);
+            b.thoiDiemBatDauApDung,
+            b.tyLeHoan,b.soTienHoan,refundPayment==null?null:refundPayment.thoiGianYeuCauHoan,
+            refundPayment==null?null:refundPayment.maYeuCauHoan,
+            refundPayment==null?null:refundPayment.soTienYeuCauHoan,
+            refundPayment==null?null:refundPayment.soTienHoan,
+            refundPayment==null?null:refundPayment.thoiGianHoan,
+            refundPayment==null?null:refundPayment.maGiaoDichHoan,
+            refundPayment==null?null:refundPayment.phuongThuc,
+            refundPayment==null?null:refundPayment.vnpayMaGiaoDichGoc,
+            refundPayment==null?null:refundPayment.ghiChuHoan,
+            refundPayment==null?null:refundPayment.vnpayThoiDiemGiaoDichGoc);
     }
     private AccountResponse account(TaiKhoan u){return new AccountResponse(u.maTk,u.tenDangNhap,u.email,u.vaiTro.name(),u.trangThai,u.taoLuc);}
     private String valid(String v,Set<String> allowed,String fallback){String x=v==null||v.isBlank()?fallback:v;if(!allowed.contains(x))throw new BusinessException("Trạng thái không hợp lệ");return x;}

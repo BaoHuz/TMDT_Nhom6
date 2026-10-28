@@ -737,6 +737,58 @@ button {
   flex-shrink: 0;
 }
 
+.service-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 250px;
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+}
+
+.service-card .service-type-badge {
+  align-self: flex-start;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-full);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.service-card h3 {
+  margin: 0.85rem 0 0.3rem;
+  color: var(--text-main);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.service-card .service-price {
+  margin-bottom: 0.5rem;
+  color: var(--primary-dark);
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.service-card .service-duration {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.service-card .service-duration svg {
+  flex: 0 0 auto;
+  color: var(--primary);
+}
+
+.service-card .btn {
+  margin-top: auto;
+}
+
 /* Service Pricing Cards */
 .service-pricing-card {
   padding: 1.75rem;
@@ -1576,6 +1628,39 @@ button {
   color: var(--text-muted);
   font-weight: 600;
   margin-bottom: 0.25rem;
+}
+
+.kpi-info {
+  min-width: 0;
+}
+
+.kpi-info .kpi-hint {
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.refund-admin-note,
+.refund-admin-feedback {
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+}
+
+.refund-admin-note {
+  background: var(--warning-light);
+  color: var(--warning-dark);
+}
+
+.refund-admin-feedback.success {
+  background: var(--success-light);
+  color: var(--success-dark);
+}
+
+.refund-admin-feedback.error {
+  background: var(--danger-light);
+  color: var(--danger-dark);
 }
 
 .kpi-value {

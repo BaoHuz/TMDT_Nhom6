@@ -16,5 +16,10 @@ public final class AdminDtos {
     public record BookingResponse(String maDat,String maKh,String maLich,int soNguoi,BigDecimal donGiaTaiDat,
         BigDecimal tongTien,String trangThai,String trangThaiThanhToan,String trangThaiHoanTien,
         String maVeQr,LocalDateTime ngayDat,String lyDoHuy,LocalDateTime thoiGianHuy,
-        BigDecimal tyLeHoan,BigDecimal soTienHoan,LocalDateTime thoiGianGhiNhanHoan,String maYeuCauHoan) {}
+        LocalDateTime thoiDiemBatDauApDung,
+        BigDecimal tyLeHoan,BigDecimal soTienHoan,LocalDateTime thoiGianGhiNhanHoan,
+        String maYeuCauHoan,BigDecimal soTienYeuCauHoan,BigDecimal soTienHoanThucTe,
+        LocalDateTime thoiGianHoanThucTe,String maGiaoDichHoan,
+        String phuongThucThanhToan,String vnpayMaGiaoDichGoc,String ghiChuHoan,
+        String vnpayThoiDiemGiaoDichGoc) {}
 }

@@ -54,8 +54,9 @@ class CheckInServiceTest {
         staff.tenDangNhap = "staff1";
 
         when(bookings.findByMaVeQr("QR-DL-01")).thenReturn(Optional.of(booking));
+        when(schedules.lockById("L-01")).thenReturn(Optional.of(schedule));
+        when(bookings.lockById("DL-01")).thenReturn(Optional.of(booking));
         when(checkIns.existsByMaDat("DL-01")).thenReturn(false);
-        when(schedules.findById("L-01")).thenReturn(Optional.of(schedule));
         when(users.findByTenDangNhap("staff1")).thenReturn(Optional.of(staff));
         when(bookings.save(any(DatLich.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -69,10 +70,15 @@ class CheckInServiceTest {
     void staffCheckIn_AlreadyCheckedIn_ThrowsException() {
         DatLich booking = new DatLich();
         booking.maDat = "DL-01";
+        booking.maLich = "L-01";
         booking.maVeQr = "QR-DL-01";
         booking.trangThai = TrangThaiDatLich.DA_XAC_NHAN;
 
+        LichDichVu schedule = new LichDichVu();
+        schedule.maLich = "L-01";
         when(bookings.findByMaVeQr("QR-DL-01")).thenReturn(Optional.of(booking));
+        when(schedules.lockById("L-01")).thenReturn(Optional.of(schedule));
+        when(bookings.lockById("DL-01")).thenReturn(Optional.of(booking));
         when(checkIns.existsByMaDat("DL-01")).thenReturn(true); // already checked in
 
         assertThatThrownBy(() -> checkInService.check("QR-DL-01", "staff1"))

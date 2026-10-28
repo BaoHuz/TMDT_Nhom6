@@ -198,14 +198,23 @@ export default function BookingDetailPage() {
                 <AlertTriangle size={18} /> Đơn đã hủy
               </div>
               <p><b>Thời gian hủy:</b> {booking.thoiGianHuy ? new Date(booking.thoiGianHuy).toLocaleString('vi-VN') : '—'}</p>
+              <p><b>Giờ bắt đầu ca dùng để tính chính sách:</b> {booking.thoiDiemBatDauApDung ? new Date(booking.thoiDiemBatDauApDung).toLocaleString('vi-VN') : '—'}</p>
               <p><b>Lý do:</b> {booking.lyDoHuy || 'Không có lý do cụ thể'}</p>
               <p><b>Tỷ lệ hoàn tiền:</b> {booking.tyLeHoan}%</p>
               <p><b>Trạng thái hoàn tiền:</b> {statusText(booking.trangThaiHoanTien)}</p>
               <p><b>Số tiền hoàn theo chính sách:</b> <b style={{ color: 'var(--primary-dark)' }}>{money(booking.soTienHoan)}</b></p>
               {booking.trangThaiHoanTien === 'CHO_HOAN' && (
                 <>
+                  <p><b>Số tiền đã ghi nhận yêu cầu hoàn:</b> {money(booking.soTienYeuCauHoan)}</p>
                   <p><b>Thời gian ghi nhận yêu cầu:</b> {booking.thoiGianGhiNhanHoan ? new Date(booking.thoiGianGhiNhanHoan).toLocaleString('vi-VN') : '—'}</p>
                   <p><b>Mã yêu cầu hoàn:</b> <code>{booking.maYeuCauHoan || '—'}</code></p>
+                </>
+              )}
+              {['HOAN_MOT_PHAN', 'HOAN_TOAN'].includes(booking.trangThaiHoanTien) && (
+                <>
+                  <p><b>Số tiền hoàn thực tế:</b> {money(booking.soTienHoanThucTe)}</p>
+                  <p><b>Thời gian hoàn thực tế:</b> {booking.thoiGianHoanThucTe ? new Date(booking.thoiGianHoanThucTe).toLocaleString('vi-VN') : '—'}</p>
+                  <p><b>Mã giao dịch hoàn:</b> <code>{booking.maGiaoDichHoan || '—'}</code></p>
                 </>
               )}
               {booking.trangThaiHoanTien === 'CHO_HOAN' && (

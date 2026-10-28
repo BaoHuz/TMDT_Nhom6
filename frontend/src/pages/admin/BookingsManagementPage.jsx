@@ -15,6 +15,8 @@ export default function BookingsManagementPage() {
 
   // Detail Modal
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundFeedback, setRefundFeedback] = useState(null);
 
   useEffect(() => {
     adminService.bookings()
@@ -36,6 +38,42 @@ export default function BookingsManagementPage() {
       case 'DA_CHECK_IN': return 'tag-blue';
       case 'DA_HUY': return 'tag-red';
       default: return 'tag-gray';
+    }
+  };
+
+  const handleRefund = async () => {
+    if (!selectedBooking || refundSubmitting) return;
+    const confirmed = window.confirm(
+      `Gửi yêu cầu hoàn ${money(selectedBooking.soTienYeuCauHoan)} cho giao dịch VNPay của đơn ${selectedBooking.maDat}?`
+    );
+    if (!confirmed) return;
+
+    setRefundSubmitting(true);
+    setRefundFeedback(null);
+    try {
+      const response = await adminService.refundBooking(selectedBooking.maDat);
+      setRefundFeedback({
+        type: 'success',
+        message: response.data.message || 'VNPay đã xác nhận hoàn tiền.'
+      });
+    } catch (requestError) {
+      setRefundFeedback({
+        type: 'error',
+        message: requestError.response?.data?.message || 'Không thể xác nhận kết quả hoàn tiền từ VNPay.'
+      });
+    } finally {
+      try {
+        const response = await adminService.bookings();
+        const latestBookings = response.data.data || [];
+        setBookings(latestBookings);
+        setSelectedBooking(latestBookings.find(item => item.maDat === selectedBooking.maDat) || null);
+      } catch {
+        setRefundFeedback(current => ({
+          type: 'error',
+          message: `${current?.message || 'Đã gửi yêu cầu hoàn.'} Không tải lại được trạng thái mới nhất; hãy tải lại trang.`
+        }));
+      }
+      setRefundSubmitting(false);
     }
   };
 
@@ -195,13 +233,61 @@ export default function BookingsManagementPage() {
                   <div className="canceled-title"><AlertTriangle size={16} /> Thông tin hoàn hủy</div>
                   <p><b>Lý do:</b> {selectedBooking.lyDoHuy || '—'}</p>
                   <p><b>Thời gian hủy:</b> {selectedBooking.thoiGianHuy ? new Date(selectedBooking.thoiGianHuy).toLocaleString('vi-VN') : '—'}</p>
+                  <p><b>Giờ bắt đầu ca tại thời điểm hủy:</b> {selectedBooking.thoiDiemBatDauApDung ? new Date(selectedBooking.thoiDiemBatDauApDung).toLocaleString('vi-VN') : '—'}</p>
                   <p><b>Tỷ lệ hoàn:</b> {selectedBooking.tyLeHoan}%</p>
                   <p><b>Trạng thái hoàn tiền:</b> {statusText(selectedBooking.trangThaiHoanTien)}</p>
                   <p><b>Số tiền hoàn theo chính sách:</b> {money(selectedBooking.soTienHoan)}</p>
-                  {selectedBooking.trangThaiHoanTien === 'CHO_HOAN' && (
+                  {['CHO_HOAN', 'DANG_XU_LY'].includes(selectedBooking.trangThaiHoanTien) && (
                     <>
+                      <p><b>Số tiền đã ghi nhận yêu cầu hoàn:</b> {money(selectedBooking.soTienYeuCauHoan)}</p>
                       <p><b>Thời gian ghi nhận yêu cầu:</b> {selectedBooking.thoiGianGhiNhanHoan ? new Date(selectedBooking.thoiGianGhiNhanHoan).toLocaleString('vi-VN') : '—'}</p>
                       <p><b>Mã yêu cầu hoàn:</b> <code>{selectedBooking.maYeuCauHoan || '—'}</code></p>
+                      <p><b>Phương thức thanh toán:</b> {selectedBooking.phuongThucThanhToan || '—'}</p>
+                      {selectedBooking.ghiChuHoan && <p className="refund-admin-note">{selectedBooking.ghiChuHoan}</p>}
+                      {selectedBooking.trangThaiHoanTien === 'CHO_HOAN'
+                        && selectedBooking.phuongThucThanhToan === 'VNPAY'
+                        && selectedBooking.vnpayThoiDiemGiaoDichGoc && (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ marginTop: '0.75rem' }}
+                          onClick={handleRefund}
+                          disabled={refundSubmitting}
+                        >
+                          {refundSubmitting ? 'Đang gửi VNPay...' : `Hoàn ${money(selectedBooking.soTienYeuCauHoan)} qua VNPay`}
+                        </button>
+                      )}
+                      {selectedBooking.trangThaiHoanTien === 'CHO_HOAN'
+                        && selectedBooking.phuongThucThanhToan === 'VNPAY'
+                        && !selectedBooking.vnpayThoiDiemGiaoDichGoc && (
+                        <p className="refund-admin-note">
+                          Thiếu ngày giao dịch gốc VNPay nên không thể hoàn tự động. Không đánh dấu hoàn thủ công.
+                        </p>
+                      )}
+                      {selectedBooking.trangThaiHoanTien === 'CHO_HOAN'
+                        && selectedBooking.phuongThucThanhToan !== 'VNPAY' && (
+                        <p className="refund-admin-note">
+                          Giao dịch mô phỏng không thể chuyển tiền thật qua VNPay.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {selectedBooking.trangThaiHoanTien === 'DANG_XU_LY' && (
+                    <p className="refund-admin-note">
+                      VNPay đang xử lý hoặc hệ thống đang đối soát. Không gửi lại để tránh hoàn trùng.
+                      {selectedBooking.ghiChuHoan ? ` ${selectedBooking.ghiChuHoan}` : ''}
+                    </p>
+                  )}
+                  {refundFeedback && (
+                    <p role="status" className={`refund-admin-feedback ${refundFeedback.type}`}>
+                      {refundFeedback.message}
+                    </p>
+                  )}
+                  {['HOAN_MOT_PHAN', 'HOAN_TOAN'].includes(selectedBooking.trangThaiHoanTien) && (
+                    <>
+                      <p><b>Số tiền hoàn thực tế:</b> {money(selectedBooking.soTienHoanThucTe)}</p>
+                      <p><b>Thời gian hoàn thực tế:</b> {selectedBooking.thoiGianHoanThucTe ? new Date(selectedBooking.thoiGianHoanThucTe).toLocaleString('vi-VN') : '—'}</p>
+                      <p><b>Mã giao dịch hoàn:</b> <code>{selectedBooking.maGiaoDichHoan || '—'}</code></p>
                     </>
                   )}
                   {selectedBooking.trangThaiHoanTien === 'CHO_HOAN' && (

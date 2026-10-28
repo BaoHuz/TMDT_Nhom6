@@ -18,4 +18,8 @@ public interface DatLichRepository extends JpaRepository<DatLich, String> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from DatLich d where d.maDat = :id")
     Optional<DatLich> lockById(@Param("id") String id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from DatLich d where d.maLich = :maLich order by d.maDat")
+    List<DatLich> lockByMaLich(@Param("maLich") String maLich);
 }

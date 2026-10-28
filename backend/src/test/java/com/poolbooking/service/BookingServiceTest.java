@@ -122,9 +122,11 @@ class BookingServiceTest {
         expired.hanThanhToan = LocalDateTime.now().minusMinutes(1);
         expired.trangThai = TrangThaiDatLich.CHO_THANH_TOAN;
         when(scheduleRepository.lockById("L001")).thenReturn(Optional.of(schedule));
+        when(bookingRepository.findById("DL-OLD")).thenReturn(Optional.of(expired));
+        when(bookingRepository.lockById("DL-OLD")).thenReturn(Optional.of(expired));
 
-        service.expireIfNeeded(expired);
-        service.expireIfNeeded(expired);
+        service.expireIfNeeded("DL-OLD");
+        service.expireIfNeeded("DL-OLD");
 
         assertEquals(TrangThaiDatLich.HET_HAN, expired.trangThai);
         assertEquals(1, schedule.soChoCon);

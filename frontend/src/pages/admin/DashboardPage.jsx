@@ -33,8 +33,11 @@ export default function DashboardPage() {
             <DollarSign size={24} />
           </div>
           <div className="kpi-info">
-            <small>Doanh thu thực tế (đã trừ hoàn)</small>
+            <small>Doanh thu sau khi trừ yêu cầu/hoàn tiền</small>
             <div className="kpi-value">{money(stats?.doanhThu)}</div>
+            <small className="kpi-hint">
+              Chờ xử lý/đối soát: {money(stats?.tienHoanChoXuLy)} · Đã hoàn thực tế: {money(stats?.tienDaHoanThucTe)}
+            </small>
           </div>
         </div>
 

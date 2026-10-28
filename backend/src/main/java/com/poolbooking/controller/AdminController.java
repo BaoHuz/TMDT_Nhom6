@@ -5,14 +5,16 @@ import com.poolbooking.dto.AdminDtos.*;
 import com.poolbooking.dto.AdminDtos.ScheduleRequest;
 import com.poolbooking.dto.AdminDtos.ServiceRequest;
 import com.poolbooking.entity.*;
+import com.poolbooking.service.AdminRefundService;
 import com.poolbooking.service.AdminService;
-import jakarta.validation.Valid;import org.springframework.web.bind.annotation.*;import java.util.*;
+import jakarta.validation.Valid;import jakarta.servlet.http.HttpServletRequest;import org.springframework.security.core.Authentication;import org.springframework.web.bind.annotation.*;import java.util.*;
 
 @RestController @RequestMapping("/api/admin")
 public class AdminController {
- private final AdminService a;public AdminController(AdminService a){this.a=a;}
+ private final AdminService a;private final AdminRefundService refunds;public AdminController(AdminService a,AdminRefundService refunds){this.a=a;this.refunds=refunds;}
  @GetMapping("/dashboard") ApiResponse<Map<String,Object>> dashboard(){return ApiResponse.ok("Thành công",a.dashboard());}
  @GetMapping("/bookings") ApiResponse<List<BookingResponse>> bookings(){return ApiResponse.ok("Thành công",a.bookings());}
+ @PostMapping("/bookings/{id}/refund") ApiResponse<Map<String,Object>> refund(@PathVariable String id,Authentication auth,HttpServletRequest request){return ApiResponse.ok("VNPay đã xác nhận hoàn tiền",refunds.refund(id,auth.getName(),request.getRemoteAddr()));}
  @GetMapping("/pools") ApiResponse<List<HoBoi>> pools(){return ApiResponse.ok("Thành công",a.pools());}
  @PostMapping("/pools") ApiResponse<HoBoi> pool(@Valid @RequestBody PoolRequest r){return ApiResponse.created("Đã tạo hồ bơi",a.savePool(null,r));}
  @PutMapping("/pools/{id}") ApiResponse<HoBoi> pool(@PathVariable String id,@Valid @RequestBody PoolRequest r){return ApiResponse.ok("Đã cập nhật",a.savePool(id,r));}
