@@ -1,7 +1,3 @@
 package com.poolbooking.enums;
 
-public enum VaiTro {
-    CUSTOMER,
-    STAFF,
-    ADMIN
-}
+public enum VaiTro { CUSTOMER, STAFF, ADMIN }

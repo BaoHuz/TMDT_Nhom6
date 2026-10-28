@@ -9,14 +9,7 @@
 
 ## Database
 
-Chạy lần lượt `database/pool_booking.sql` và `database/seed_data.sql` bằng SQL Server Management Studio. Lưu ý: `pool_booking.sql` xóa và tạo lại các bảng, vì vậy chỉ chạy trên database demo/dev hoặc sau khi đã sao lưu dữ liệu cần giữ. Sau đó sửa username/password trong `backend/src/main/resources/application.properties`.
-
-Nếu đang dùng database cũ, cột `dbo.dich_vu.ten_dv` phải là `NVARCHAR(150)` để lưu được tên tiếng Việt. Có thể chuyển cột mà không xóa dữ liệu bằng lệnh:
-
-```sql
-ALTER TABLE dbo.dich_vu
-ALTER COLUMN ten_dv NVARCHAR(150) NOT NULL;
-```
+Chạy lần lượt `database/pool_booking.sql` và `database/seed_data.sql` bằng SQL Server Management Studio. Nếu mật khẩu `sa` không phải `123`, đặt biến môi trường `DB_PASSWORD` trước khi chạy backend.
 
 ## Backend
 
@@ -24,8 +17,8 @@ Windows:
 
 ```powershell
 cd backend
-mvnw.cmd clean package -DskipTests
-mvnw.cmd spring-boot:run
+.\mvnw.cmd clean package -DskipTests
+.\mvnw.cmd spring-boot:run
 ```
 
 Hoặc nếu đã cài Maven:
@@ -53,9 +46,9 @@ Frontend chạy tại `http://localhost:5173`.
 ## Tài khoản demo
 
 ```text
-CUSTOMER: customer / password
-STAFF:    staff    / password
-ADMIN:    admin    / password
+CUSTOMER: customer@pool.local / password
+STAFF:    staff@pool.local    / password
+ADMIN:    admin@pool.local    / password
 ```
 
 Nếu đã chạy seed data trước đó, cập nhật mật khẩu demo hiện có bằng câu lệnh sau trong SQL Server Management Studio:
@@ -68,6 +61,10 @@ WHERE ten_dang_nhap IN ('customer', 'staff', 'admin');
 ```
 
 Luồng demo: CUSTOMER đăng nhập → xem lịch → đặt vé → thanh toán mô phỏng → nhận QR → STAFF check-in → ADMIN xem dashboard.
+
+ADMIN tạo tài khoản nhân viên tại **Quản trị → Tài khoản & Phân quyền**. Đơn chờ thanh toán hết hạn sau 15 phút và tự hoàn chỗ về lịch. Với database đã có từ trước, chạy `database/migration_payment_deadline.sql`; nếu schema cũ không tương thích thì tạo lại bằng `database/pool_booking.sql` và nạp `database/seed_data.sql` (việc tạo lại sẽ xóa dữ liệu cũ).
+
+Thanh toán VNPay Sandbox cần `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_RETURN_URL` và `FRONTEND_URL`. Cấu hình IPN công khai `https://<domain>/api/payments/vnpay/ipn` trong merchant portal; khi chạy local, dùng HTTPS tunnel tới backend port 8080. Các giá trị merchant được cấp khi đăng ký sandbox.
 
 ## Thư mục cần giữ
 

@@ -1,0 +1,2 @@
+import React from 'react';import {Link,Outlet,useNavigate} from 'react-router-dom';import {Waves,LogOut} from 'lucide-react';import {useAuth} from '../context/AuthContext';
+export default function StaffLayout(){const {user,logout}=useAuth();const n=useNavigate();return <div className="staff-shell"><header><Link className="logo" to="/"><Waves/>AquaFlow</Link><span>{user.fullName} · STAFF</span><button className="btn secondary" onClick={()=>{logout();n('/')}}><LogOut size={16}/>Đăng xuất</button></header><main><Outlet/></main></div>}

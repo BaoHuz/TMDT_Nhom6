@@ -1,31 +1,31 @@
 package com.poolbooking.controller;
 
-import com.poolbooking.entity.LoginRequest;
-import com.poolbooking.entity.LoginResponse;
-import com.poolbooking.entity.RegisterRequest;
+import com.poolbooking.dto.ApiResponse;
+import com.poolbooking.dto.AuthDtos.*;
 import com.poolbooking.service.AuthService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    private final AuthService service;
-
-    public AuthController(AuthService service) {
-        this.service = service;
-    }
+    private final AuthService auth;
+    public AuthController(AuthService auth) { this.auth = auth; }
 
     @PostMapping("/register")
-    public LoginResponse register(@Valid @RequestBody RegisterRequest request) {
-        return service.register(request);
+    ResponseEntity<ApiResponse<TokenData>> register(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.created("Đăng ký thành công", auth.register(request)));
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return service.login(request);
+    ApiResponse<TokenData> login(@Valid @RequestBody LoginRequest request) {
+        return ApiResponse.ok("Đăng nhập thành công", auth.login(request));
+    }
+
+    @PostMapping("/refresh")
+    ApiResponse<TokenData> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ApiResponse.ok("Làm mới token thành công", auth.refresh(request));
     }
 }

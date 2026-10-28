@@ -47,8 +47,9 @@ GO
    1. TÀI KHOẢN
    ========================================================= */
 CREATE TABLE dbo.tai_khoan (
-    ma_tk           VARCHAR(20)  NOT NULL,
+    ma_tk           VARCHAR(60)  NOT NULL,
     ten_dang_nhap   VARCHAR(60)  NOT NULL,
+    email           VARCHAR(150) NOT NULL,
     mat_khau_bam    VARCHAR(255) NOT NULL,
     vai_tro         VARCHAR(20)  NOT NULL,
     trang_thai      VARCHAR(20)  NOT NULL CONSTRAINT DF_tai_khoan_trang_thai DEFAULT 'HOAT_DONG',
@@ -56,6 +57,7 @@ CREATE TABLE dbo.tai_khoan (
 
     CONSTRAINT PK_tai_khoan PRIMARY KEY (ma_tk),
     CONSTRAINT UQ_tai_khoan_ten_dang_nhap UNIQUE (ten_dang_nhap),
+    CONSTRAINT UQ_tai_khoan_email UNIQUE (email),
     CONSTRAINT CK_tai_khoan_vai_tro
         CHECK (vai_tro IN ('CUSTOMER', 'STAFF', 'ADMIN')),
     CONSTRAINT CK_tai_khoan_trang_thai
@@ -67,15 +69,14 @@ GO
    2. KHÁCH HÀNG
    ========================================================= */
 CREATE TABLE dbo.khach_hang (
-    ma_kh       VARCHAR(20)   NOT NULL,
-    ma_tk       VARCHAR(20)   NULL,
+    ma_kh       VARCHAR(60)   NOT NULL,
+    ma_tk       VARCHAR(60)   NULL,
     ho_ten      NVARCHAR(150) NOT NULL,
     dien_thoai  VARCHAR(20)   NULL,
     email       VARCHAR(150)  NULL,
     trang_thai  VARCHAR(20)   NOT NULL CONSTRAINT DF_khach_hang_trang_thai DEFAULT 'HOAT_DONG',
 
     CONSTRAINT PK_khach_hang PRIMARY KEY (ma_kh),
-    CONSTRAINT UQ_khach_hang_ma_tk UNIQUE (ma_tk),
     CONSTRAINT FK_khach_hang_tai_khoan
         FOREIGN KEY (ma_tk) REFERENCES dbo.tai_khoan(ma_tk),
     CONSTRAINT CK_khach_hang_trang_thai
@@ -83,11 +84,16 @@ CREATE TABLE dbo.khach_hang (
 );
 GO
 
+CREATE UNIQUE INDEX UX_khach_hang_ma_tk
+    ON dbo.khach_hang(ma_tk)
+    WHERE ma_tk IS NOT NULL;
+GO
+
 /* =========================================================
    3. HỒ BƠI
    ========================================================= */
 CREATE TABLE dbo.ho_boi (
-    ma_ho_boi      VARCHAR(20)   NOT NULL,
+    ma_ho_boi      VARCHAR(60)   NOT NULL,
     ten_ho_boi     NVARCHAR(150) NOT NULL,
     dia_chi        NVARCHAR(300) NOT NULL,
     gio_mo_cua     TIME          NOT NULL,
@@ -105,8 +111,8 @@ GO
    4. KHU VỰC
    ========================================================= */
 CREATE TABLE dbo.khu_vuc (
-    ma_khu_vuc  VARCHAR(20)   NOT NULL,
-    ma_ho_boi   VARCHAR(20)   NOT NULL,
+    ma_khu_vuc  VARCHAR(60)   NOT NULL,
+    ma_ho_boi   VARCHAR(60)   NOT NULL,
     ten_khu_vuc NVARCHAR(120) NOT NULL,
     suc_chua    INT           NOT NULL,
     trang_thai  VARCHAR(20)   NOT NULL CONSTRAINT DF_khu_vuc_trang_thai DEFAULT 'HOAT_DONG',
@@ -125,7 +131,7 @@ GO
    5. DỊCH VỤ
    ========================================================= */
 CREATE TABLE dbo.dich_vu (
-    ma_dv            VARCHAR(20)   NOT NULL,
+    ma_dv            VARCHAR(60)   NOT NULL,
     ten_dv           NVARCHAR(150) NOT NULL,
     loai_dv          VARCHAR(30)   NOT NULL,
     don_gia          DECIMAL(18,2) NOT NULL,
@@ -144,16 +150,16 @@ GO
    6. LỊCH DỊCH VỤ / CA BƠI
    ========================================================= */
 CREATE TABLE dbo.lich_dich_vu (
-    ma_lich       VARCHAR(20) NOT NULL,
-    ma_dv         VARCHAR(20) NOT NULL,
-    ma_khu_vuc    VARCHAR(20) NOT NULL,
+    ma_lich       VARCHAR(60) NOT NULL,
+    ma_dv         VARCHAR(60) NOT NULL,
+    ma_khu_vuc    VARCHAR(60) NOT NULL,
     ngay          DATE        NOT NULL,
     gio_bat_dau   TIME        NOT NULL,
     gio_ket_thuc  TIME        NOT NULL,
     suc_chua      INT         NOT NULL,
     so_cho_con    INT         NOT NULL,
     trang_thai    VARCHAR(20) NOT NULL CONSTRAINT DF_lich_dich_vu_trang_thai DEFAULT 'NHAP',
-    row_version   ROWVERSION  NOT NULL,
+    row_version   BIGINT      NOT NULL CONSTRAINT DF_lich_dich_vu_row_version DEFAULT 0,
 
     CONSTRAINT PK_lich_dich_vu PRIMARY KEY (ma_lich),
     CONSTRAINT FK_lich_dv FOREIGN KEY (ma_dv) REFERENCES dbo.dich_vu(ma_dv),
@@ -172,11 +178,12 @@ GO
    - Các trường hủy/hoàn tiền được bổ sung theo TH4.
    ========================================================= */
 CREATE TABLE dbo.dat_lich (
-    ma_dat          VARCHAR(20)   NOT NULL,
-    ma_kh           VARCHAR(20)   NOT NULL,
-    ma_lich         VARCHAR(20)   NOT NULL,
+    ma_dat          VARCHAR(60)   NOT NULL,
+    ma_kh           VARCHAR(60)   NOT NULL,
+    ma_lich         VARCHAR(60)   NOT NULL,
     ma_ve_qr        VARCHAR(100)  NULL,
     ngay_dat        DATETIME2     NOT NULL CONSTRAINT DF_dat_lich_ngay_dat DEFAULT SYSDATETIME(),
+    han_thanh_toan  DATETIME2     NOT NULL CONSTRAINT DF_dat_lich_han_thanh_toan DEFAULT DATEADD(MINUTE, 15, SYSDATETIME()),
     so_nguoi        INT           NOT NULL,
     don_gia_tai_dat DECIMAL(18,2) NOT NULL,
     tong_tien       DECIMAL(18,2) NOT NULL,
@@ -223,8 +230,8 @@ GO
    - Trường hoàn tiền gắn với giao dịch gốc, không tạo bảng mới.
    ========================================================= */
 CREATE TABLE dbo.thanh_toan (
-    ma_tt             VARCHAR(30)   NOT NULL,
-    ma_dat            VARCHAR(20)   NOT NULL,
+    ma_tt             VARCHAR(60)   NOT NULL,
+    ma_dat            VARCHAR(60)   NOT NULL,
     thoi_diem         DATETIME2     NOT NULL CONSTRAINT DF_thanh_toan_thoi_diem DEFAULT SYSDATETIME(),
     so_tien           DECIMAL(18,2) NOT NULL,
     phuong_thuc       VARCHAR(30)   NOT NULL CONSTRAINT DF_thanh_toan_phuong_thuc DEFAULT 'MO_PHONG',
@@ -241,7 +248,7 @@ CREATE TABLE dbo.thanh_toan (
     CONSTRAINT FK_tt_dat FOREIGN KEY (ma_dat) REFERENCES dbo.dat_lich(ma_dat),
     CONSTRAINT CK_tt_so_tien CHECK (so_tien > 0),
     CONSTRAINT CK_tt_trang_thai
-        CHECK (trang_thai IN ('THANH_CONG', 'THAT_BAI', 'HOAN_TIEN')),
+        CHECK (trang_thai IN ('CHO_XU_LY', 'THANH_CONG', 'THAT_BAI', 'HOAN_TIEN')),
     CONSTRAINT CK_tt_trang_thai_hoan
         CHECK (trang_thai_hoan IS NULL OR trang_thai_hoan IN ('KHONG_HOAN', 'HOAN_MOT_PHAN', 'HOAN_TOAN')),
     CONSTRAINT CK_tt_so_tien_hoan
@@ -263,9 +270,9 @@ GO
    9. CHECK-IN
    ========================================================= */
 CREATE TABLE dbo.check_in (
-    ma_ci             VARCHAR(30)   NOT NULL,
-    ma_dat            VARCHAR(20)   NOT NULL,
-    ma_tk_nhan_vien   VARCHAR(20)   NOT NULL,
+    ma_ci             VARCHAR(60)   NOT NULL,
+    ma_dat            VARCHAR(60)   NOT NULL,
+    ma_tk_nhan_vien   VARCHAR(60)   NOT NULL,
     thoi_diem         DATETIME2     NOT NULL CONSTRAINT DF_check_in_thoi_diem DEFAULT SYSDATETIME(),
     ghi_chu           NVARCHAR(500) NULL,
 

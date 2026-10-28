@@ -3,28 +3,17 @@ package com.poolbooking.repository;
 import com.poolbooking.entity.DatLich;
 import com.poolbooking.enums.TrangThaiDatLich;
 import jakarta.persistence.LockModeType;
-import java.util.List;
-import java.util.Optional;
-import java.time.LocalDateTime;
-import java.util.Collection;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
+import java.util.*;
+import java.time.LocalDateTime;
 
 public interface DatLichRepository extends JpaRepository<DatLich, String> {
-    List<DatLich> findByMaKhOrderByNgayDatDesc(String id);
-
-    List<DatLich> findByMaLichAndTrangThaiOrderByNgayDatAsc(String scheduleId, TrangThaiDatLich status);
-
-    List<DatLich> findByTrangThaiAndNgayDatBefore(TrangThaiDatLich status, LocalDateTime cutoff);
-
-    List<DatLich> findByMaLichInAndTrangThaiAndNgayDatBefore(
-            Collection<String> scheduleIds, TrangThaiDatLich status, LocalDateTime cutoff);
-
-    Optional<DatLich> findByMaVeQr(String qr);
-
-    long countByTrangThai(TrangThaiDatLich status);
+    List<DatLich> findByMaKhOrderByNgayDatDesc(String maKh);
+    List<DatLich> findByMaLich(String maLich);
+    Optional<DatLich> findByMaVeQr(String maVeQr);
+    long countByTrangThai(TrangThaiDatLich trangThai);
+    List<DatLich> findByTrangThaiAndHanThanhToanLessThanEqual(TrangThaiDatLich trangThai, LocalDateTime now);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from DatLich d where d.maDat = :id")

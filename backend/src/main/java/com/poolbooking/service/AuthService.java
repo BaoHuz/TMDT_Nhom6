@@ -1,77 +1,74 @@
 package com.poolbooking.service;
 
-import com.poolbooking.entity.LoginRequest;
-import com.poolbooking.entity.LoginResponse;
-import com.poolbooking.entity.KhachHang;
-import com.poolbooking.entity.RegisterRequest;
-import com.poolbooking.entity.TaiKhoan;
+import com.poolbooking.dto.AuthDtos.*;
+import com.poolbooking.dto.AuthDtos.LoginRequest;
+import com.poolbooking.dto.AuthDtos.RegisterRequest;
+import com.poolbooking.entity.*;
+import com.poolbooking.enums.VaiTro;
 import com.poolbooking.exception.BusinessException;
-import com.poolbooking.repository.KhachHangRepository;
-import com.poolbooking.repository.TaiKhoanRepository;
+import com.poolbooking.repository.*;
 import com.poolbooking.security.JwtService;
-import java.util.UUID;
-import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
     private final TaiKhoanRepository users;
     private final KhachHangRepository customers;
-    private final PasswordEncoder encoder;
-    private final JwtService jwtService;
+    private final PasswordEncoder passwords;
+    private final JwtService jwt;
 
-    public AuthService(TaiKhoanRepository users, KhachHangRepository customers, PasswordEncoder encoder,
-            JwtService jwtService) {
-        this.users = users;
-        this.customers = customers;
-        this.encoder = encoder;
-        this.jwtService = jwtService;
+    public AuthService(TaiKhoanRepository users, KhachHangRepository customers,
+                       PasswordEncoder passwords, JwtService jwt) {
+        this.users = users; this.customers = customers; this.passwords = passwords; this.jwt = jwt;
     }
 
     @Transactional
-    public LoginResponse register(RegisterRequest request) {
-        if (users.findByTenDangNhap(request.tenDangNhap()).isPresent()) {
-            throw new BusinessException("Tên đăng nhập đã tồn tại");
-        }
+    public TokenData register(RegisterRequest request) {
+        String username = request.username().trim();
+        String email = request.email().trim().toLowerCase();
+        if (users.existsByTenDangNhap(username)) throw new BusinessException("Tên đăng nhập đã tồn tại");
+        if (users.existsByEmailIgnoreCase(email)) throw new BusinessException("Email đã được sử dụng");
+
         TaiKhoan user = new TaiKhoan();
-        user.maTk = newId("TK-");
-        user.tenDangNhap = request.tenDangNhap();
-        user.matKhauBam = encoder.encode(request.matKhau());
+        user.maTk = "TK-" + UUID.randomUUID(); user.tenDangNhap = username; user.email = email;
+        user.matKhauBam = passwords.encode(request.password()); user.vaiTro = VaiTro.CUSTOMER;
         users.save(user);
 
         KhachHang customer = new KhachHang();
-        customer.maKh = newId("KH-");
-        customer.maTk = user.maTk;
-        customer.hoTen = request.hoTen();
-        customer.email = request.email();
-        customer.dienThoai = request.dienThoai();
+        customer.maKh = "KH-" + UUID.randomUUID(); customer.maTk = user.maTk;
+        customer.hoTen = request.fullName().trim(); customer.dienThoai = request.phone(); customer.email = email;
         customers.save(customer);
-        return new LoginResponse(jwtService.create(user), user.vaiTro.name(), customer.hoTen);
+        return tokens(user);
     }
 
-    public LoginResponse login(LoginRequest request) {
-        TaiKhoan user = users.findByTenDangNhap(request.tenDangNhap())
-                .orElseThrow(() -> new BusinessException("Sai tên đăng nhập hoặc mật khẩu"));
-        if (!"HOAT_DONG".equals(user.trangThai)) {
-            throw new BusinessException("Tài khoản đã bị khóa");
-        }
-        String encodedPassword = user.matKhauBam;
-        if (encodedPassword.startsWith("{bcrypt}")) {
-            encodedPassword = encodedPassword.substring("{bcrypt}".length());
-        }
-        if (!encoder.matches(request.matKhau(), encodedPassword)) {
-            throw new BusinessException("Sai tên đăng nhập hoặc mật khẩu");
-        }
-        KhachHang customer = customers.findByMaTk(user.maTk).orElse(null);
-        if (customer != null && !"HOAT_DONG".equals(customer.trangThai)) {
-            throw new BusinessException("Tài khoản khách hàng đã bị khóa");
-        }
-        String displayName = customer == null ? user.tenDangNhap : customer.hoTen;
-        return new LoginResponse(jwtService.create(user), user.vaiTro.name(), displayName);
+    @Transactional(readOnly = true)
+    public TokenData login(LoginRequest request) {
+        String input = request.email().trim();
+        TaiKhoan user = users.findByEmailIgnoreCase(input)
+            .or(() -> users.findByTenDangNhap(input))
+            .orElseThrow(() -> new BusinessException("Email hoặc mật khẩu không đúng"));
+        if (!"HOAT_DONG".equals(user.trangThai) || !passwords.matches(request.password(), user.matKhauBam))
+            throw new BusinessException("Email hoặc mật khẩu không đúng");
+        return tokens(user);
     }
 
-    private String newId(String prefix) {
-        return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    @Transactional(readOnly = true)
+    public TokenData refresh(RefreshRequest request) {
+        String username;
+        try { username = jwt.refreshSubject(request.refreshToken()); }
+        catch (RuntimeException e) { throw new BusinessException("Refresh token không hợp lệ hoặc đã hết hạn"); }
+        TaiKhoan user = users.findByTenDangNhap(username)
+            .filter(x -> "HOAT_DONG".equals(x.trangThai))
+            .orElseThrow(() -> new BusinessException("Tài khoản không còn hoạt động"));
+        return tokens(user);
+    }
+
+    private TokenData tokens(TaiKhoan user) {
+        String fullName = customers.findByMaTk(user.maTk).map(x -> x.hoTen).orElse(user.tenDangNhap);
+        return new TokenData(jwt.createAccessToken(user), jwt.createRefreshToken(user),
+            jwt.accessExpirationSeconds(), "Bearer", user.vaiTro.name(), fullName);
     }
 }

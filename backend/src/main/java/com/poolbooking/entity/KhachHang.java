@@ -1,20 +1,14 @@
 package com.poolbooking.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "khach_hang")
 public class KhachHang {
-    @Id
-    public String maKh;
-    public String maTk;
-    public String hoTen;
-    public String dienThoai;
+    @Id @Column(name = "ma_kh") public String maKh;
+    @Column(name = "ma_tk", unique = true) public String maTk;
+    @Column(name = "ho_ten", nullable = false) public String hoTen;
+    @Column(name = "dien_thoai") public String dienThoai;
     public String email;
-    public String trangThai = "HOAT_DONG";
-
-    public KhachHang() {
-    }
+    @Column(name = "trang_thai", nullable = false) public String trangThai = "HOAT_DONG";
 }

@@ -7,7 +7,7 @@
     - staff    / password
     - admin    / password
 
-    Mật khẩu demo được băm BCrypt để đăng nhập bằng "password".
+    BCrypt hash hợp lệ cho mật khẩu "password".
 */
 
 USE PoolBooking;
@@ -20,11 +20,11 @@ GO
    1. TÀI KHOẢN
    ========================================================= */
 INSERT INTO dbo.tai_khoan
-    (ma_tk, ten_dang_nhap, mat_khau_bam, vai_tro, trang_thai)
+    (ma_tk, ten_dang_nhap, email, mat_khau_bam, vai_tro, trang_thai)
 VALUES
-    ('TK-CUSTOMER', 'customer', '{bcrypt}$2a$10$iHnuvcu3yObLcSDyzML3ouhYEDFsMlL9aEsJCUVm8JLVt0rsMfufW', 'CUSTOMER', 'HOAT_DONG'),
-    ('TK-STAFF',    'staff',    '{bcrypt}$2a$10$iHnuvcu3yObLcSDyzML3ouhYEDFsMlL9aEsJCUVm8JLVt0rsMfufW', 'STAFF',    'HOAT_DONG'),
-    ('TK-ADMIN',    'admin',    '{bcrypt}$2a$10$iHnuvcu3yObLcSDyzML3ouhYEDFsMlL9aEsJCUVm8JLVt0rsMfufW', 'ADMIN',    'HOAT_DONG');
+    ('TK-CUSTOMER', 'customer', 'customer@pool.local', '{bcrypt}$2a$10$CvfmI9FlxDnstnjoEsObBu2c3M4M7fZG8zEF5jXnU2IlDnkA1.KVS', 'CUSTOMER', 'HOAT_DONG'),
+    ('TK-STAFF',    'staff',    'staff@pool.local',    '{bcrypt}$2a$10$CvfmI9FlxDnstnjoEsObBu2c3M4M7fZG8zEF5jXnU2IlDnkA1.KVS', 'STAFF',    'HOAT_DONG'),
+    ('TK-ADMIN',    'admin',    'admin@pool.local',    '{bcrypt}$2a$10$CvfmI9FlxDnstnjoEsObBu2c3M4M7fZG8zEF5jXnU2IlDnkA1.KVS', 'ADMIN',    'HOAT_DONG');
 GO
 
 /* =========================================================

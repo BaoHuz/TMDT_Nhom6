@@ -1,215 +1,111 @@
 package com.poolbooking.service;
 
-import com.poolbooking.entity.BookingRequest;
-import com.poolbooking.entity.BookingView;
-import com.poolbooking.entity.DatLich;
-import com.poolbooking.entity.DichVu;
-import com.poolbooking.entity.KhachHang;
-import com.poolbooking.entity.KhuVuc;
-import com.poolbooking.entity.LichDichVu;
-import com.poolbooking.entity.TaiKhoan;
-import com.poolbooking.enums.TrangThaiDatLich;
-import com.poolbooking.enums.TrangThaiLich;
-import com.poolbooking.exception.BusinessException;
-import com.poolbooking.exception.ResourceNotFoundException;
-import com.poolbooking.repository.DatLichRepository;
-import com.poolbooking.repository.DichVuRepository;
-import com.poolbooking.repository.KhuVucRepository;
-import com.poolbooking.repository.KhachHangRepository;
-import com.poolbooking.repository.LichDichVuRepository;
-import com.poolbooking.repository.TaiKhoanRepository;
-import jakarta.transaction.Transactional;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.UUID;
+import com.poolbooking.dto.BookingDtos.BookingRequest;
+import com.poolbooking.dto.CatalogDtos.ScheduleResponse;
+import com.poolbooking.dto.CustomerDtos.*;
+import com.poolbooking.entity.*;
+import com.poolbooking.enums.*;
+import com.poolbooking.exception.*;
+import com.poolbooking.repository.*;
 import org.springframework.stereotype.Service;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.annotation.Transactional;
+import java.math.*;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 
 @Service
 public class BookingService {
-    public static final int HOLD_MINUTES = 5;
+    private final DatLichRepository bookings; private final LichDichVuRepository schedules;
+    private final DichVuRepository services; private final TaiKhoanRepository users;
+    private final KhachHangRepository customers; private final ThanhToanRepository payments;
+    private final CheckInRepository checkIns; private final CatalogService catalog;
 
-    private final DatLichRepository bookingRepository;
-    private final LichDichVuRepository scheduleRepository;
-    private final DichVuRepository serviceRepository;
-    private final KhuVucRepository areaRepository;
-    private final KhachHangRepository customerRepository;
-    private final TaiKhoanRepository userRepository;
-
-    public BookingService(DatLichRepository bookingRepository, LichDichVuRepository scheduleRepository,
-            DichVuRepository serviceRepository, KhuVucRepository areaRepository,
-            KhachHangRepository customerRepository, TaiKhoanRepository userRepository) {
-        this.bookingRepository = bookingRepository;
-        this.scheduleRepository = scheduleRepository;
-        this.serviceRepository = serviceRepository;
-        this.areaRepository = areaRepository;
-        this.customerRepository = customerRepository;
-        this.userRepository = userRepository;
+    public BookingService(DatLichRepository bookings, LichDichVuRepository schedules,
+        DichVuRepository services, TaiKhoanRepository users, KhachHangRepository customers,
+        ThanhToanRepository payments, CheckInRepository checkIns, CatalogService catalog) {
+        this.bookings=bookings; this.schedules=schedules; this.services=services; this.users=users;
+        this.customers=customers; this.payments=payments; this.checkIns=checkIns; this.catalog=catalog;
     }
 
-    @Transactional(dontRollbackOn = BusinessException.class)
-    public DatLich create(String userName, BookingRequest request) {
-        LichDichVu schedule = scheduleRepository.lockById(request.maLich())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
-        expirePendingBookings(schedule);
-        LocalDateTime start = LocalDateTime.of(schedule.ngay, schedule.gioBatDau);
-        if (!start.isAfter(LocalDateTime.now())) {
-            throw new BusinessException("Ca bơi đã bắt đầu hoặc đã qua");
-        }
-        if (schedule.trangThai != TrangThaiLich.MO) {
-            throw new BusinessException("Ca bơi không còn mở");
-        }
-        if (request.soNguoi() > schedule.soChoCon) {
-            throw new BusinessException("Không đủ vé còn trống. Vui lòng chọn số lượng khác");
-        }
-
-        DatLich booking = new DatLich();
-        booking.maDat = newId("DL-");
-        TaiKhoan user = userRepository.findByTenDangNhap(userName).orElseThrow();
-        KhachHang customer = customerRepository.findByMaTk(user.maTk)
-                .orElseThrow(() -> new BusinessException("Tài khoản chưa có hồ sơ khách hàng"));
-        booking.maKh = customer.maKh;
-        booking.maLich = schedule.maLich;
-        booking.soNguoi = request.soNguoi();
-        DichVu service = serviceRepository.findById(schedule.maDv).orElseThrow();
-        booking.donGiaTaiDat = service.donGia;
-        booking.tongTien = booking.donGiaTaiDat.multiply(BigDecimal.valueOf(booking.soNguoi));
-        schedule.soChoCon -= booking.soNguoi;
-        if (schedule.soChoCon == 0) {
-            schedule.trangThai = TrangThaiLich.HET_CHO;
-        }
-        scheduleRepository.save(schedule);
-        return bookingRepository.save(booking);
-    }
-
-    @Transactional(dontRollbackOn = BusinessException.class)
-    public List<BookingView> my(String userName) {
-        String customerId = customerId(userName);
-        List<DatLich> bookings = bookingRepository.findByMaKhOrderByNgayDatDesc(customerId);
-        Set<String> scheduleIds = new TreeSet<>();
-        LocalDateTime expiryCutoff = LocalDateTime.now().minusMinutes(HOLD_MINUTES);
-        bookings.stream()
-                .filter(booking -> booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN
-                        && !booking.ngayDat.isAfter(expiryCutoff))
-                .forEach(booking -> scheduleIds.add(booking.maLich));
-        scheduleIds.forEach(scheduleId -> scheduleRepository.lockById(scheduleId)
-                .ifPresent(this::expirePendingBookings));
-        return bookingRepository.findByMaKhOrderByNgayDatDesc(customerId).stream()
-                .map(this::view)
-                .toList();
-    }
-
-    @Transactional(dontRollbackOn = BusinessException.class)
-    public void cancel(String userName, String id) {
-        DatLich initial = bookingRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));
-        LichDichVu schedule = scheduleRepository.lockById(initial.maLich).orElseThrow();
-        expirePendingBookings(schedule);
-        DatLich booking = bookingRepository.lockById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));
-        requireOwner(userName, booking);
-        if (booking.trangThai != TrangThaiDatLich.CHO_THANH_TOAN) {
-            throw new BusinessException("Chỉ có thể hủy đơn đang chờ thanh toán");
-        }
-        if (!LocalDateTime.of(schedule.ngay, schedule.gioBatDau).isAfter(LocalDateTime.now())) {
-            throw new BusinessException("Đã quá giờ bắt đầu");
-        }
-        booking.trangThai = TrangThaiDatLich.DA_HUY;
-        schedule.soChoCon = Math.min(schedule.sucChua, schedule.soChoCon + booking.soNguoi);
-        reopenIfSeatsAvailable(schedule);
-        scheduleRepository.save(schedule);
-        bookingRepository.save(booking);
-    }
-
-    public DatLich owned(String userName, String id) {
-        DatLich booking = bookingRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));
-        requireOwner(userName, booking);
-        return booking;
-    }
-
-    public void expirePendingBookings(LichDichVu schedule) {
-        LocalDateTime now = LocalDateTime.now();
-        List<DatLich> pending = bookingRepository.findByMaLichAndTrangThaiOrderByNgayDatAsc(
-                schedule.maLich, TrangThaiDatLich.CHO_THANH_TOAN);
-        int releasedSeats = 0;
-        for (DatLich booking : pending) {
-            if (!booking.ngayDat.plusMinutes(HOLD_MINUTES).isAfter(now)) {
-                booking.trangThai = TrangThaiDatLich.HET_HAN;
-                bookingRepository.save(booking);
-                releasedSeats += booking.soNguoi;
-            }
-        }
-        if (releasedSeats > 0) {
-            schedule.soChoCon = Math.min(schedule.sucChua, schedule.soChoCon + releasedSeats);
-            reopenIfSeatsAvailable(schedule);
-            scheduleRepository.save(schedule);
-        }
-    }
-
-    @Scheduled(fixedDelay = 30_000)
     @Transactional
-    public void expireStaleHolds() {
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(HOLD_MINUTES);
-        Set<String> scheduleIds = new TreeSet<>();
-        bookingRepository.findByTrangThaiAndNgayDatBefore(TrangThaiDatLich.CHO_THANH_TOAN, cutoff)
-                .forEach(booking -> scheduleIds.add(booking.maLich));
-        scheduleIds.forEach(scheduleId -> scheduleRepository.lockById(scheduleId)
-                .ifPresent(this::expirePendingBookings));
+    public BookingDetailResponse create(String username, BookingRequest request) {
+        LichDichVu schedule=schedules.lockById(request.maLich()).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
+        if(schedule.trangThai!=TrangThaiLich.MO) throw new BusinessException("Ca bơi không còn mở");
+        if(LocalDateTime.of(schedule.ngay,schedule.gioBatDau).isBefore(LocalDateTime.now())) throw new BusinessException("Ca bơi đã bắt đầu");
+        if(request.soNguoi()>schedule.soChoCon) throw new BusinessException("Không đủ chỗ trống");
+        DichVu service=services.findById(schedule.maDv).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dịch vụ"));
+        DatLich booking=new DatLich(); booking.maDat="DL-"+UUID.randomUUID(); booking.maKh=currentCustomer(username).maKh;
+        booking.maLich=schedule.maLich; booking.soNguoi=request.soNguoi(); booking.donGiaTaiDat=service.donGia;
+        booking.tongTien=service.donGia.multiply(BigDecimal.valueOf(request.soNguoi())); booking.trangThai=TrangThaiDatLich.CHO_THANH_TOAN;
+        booking.hanThanhToan=LocalDateTime.now().plusMinutes(15);
+        schedule.soChoCon-=request.soNguoi(); if(schedule.soChoCon==0) schedule.trangThai=TrangThaiLich.HET_CHO;
+        schedules.save(schedule); return detail(bookings.save(booking));
     }
 
-    public BookingView view(DatLich booking) {
-        LichDichVu schedule = scheduleRepository.findById(booking.maLich)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
-        DichVu service = serviceRepository.findById(schedule.maDv)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dịch vụ"));
-        KhuVuc area = areaRepository.findById(schedule.maKhuVuc)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khu vực"));
-        return new BookingView(
-                booking.maDat,
-                booking.maLich,
-                booking.maVeQr,
-                booking.soNguoi,
-                booking.donGiaTaiDat,
-                booking.tongTien,
-                booking.ngayDat,
-                booking.trangThai == TrangThaiDatLich.CHO_THANH_TOAN
-                        ? booking.ngayDat.plusMinutes(HOLD_MINUTES)
-                        : null,
-                LocalDateTime.of(schedule.ngay, schedule.gioKetThuc),
-                booking.trangThai,
-                service.tenDv,
-                area.tenKhuVuc,
-                schedule.ngay,
-                schedule.gioBatDau,
-                schedule.gioKetThuc);
+    @Transactional(readOnly=true)
+    public List<BookingSummaryResponse> mine(String username) {
+        return bookings.findByMaKhOrderByNgayDatDesc(currentCustomer(username).maKh).stream().map(this::summary).toList();
     }
 
-    private void reopenIfSeatsAvailable(LichDichVu schedule) {
-        if (schedule.trangThai == TrangThaiLich.HET_CHO && schedule.soChoCon > 0) {
-            schedule.trangThai = TrangThaiLich.MO;
-        }
+    @Transactional(readOnly=true) public BookingDetailResponse detail(String username,String id){return detail(owned(username,id));}
+
+    @Transactional(readOnly=true)
+    public CancellationPreviewResponse cancelPreview(String username,String id){return preview(owned(username,id));}
+
+    @Transactional
+    public BookingDetailResponse cancel(String username,String id,String reason){
+        DatLich booking=bookings.lockById(id).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));
+        assertOwner(username,booking);
+        if(booking.trangThai==TrangThaiDatLich.DA_HUY) return detail(booking);
+        CancellationPreviewResponse p=preview(booking); if(!p.eligible()) throw new BusinessException(p.message());
+        LichDichVu schedule=schedules.lockById(booking.maLich).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
+        booking.trangThai=TrangThaiDatLich.DA_HUY; booking.lyDoHuy=reason==null?null:reason.trim(); booking.thoiGianHuy=LocalDateTime.now();
+        booking.tyLeHoan=p.refundRate(); booking.soTienHoan=p.refundAmount(); schedule.soChoCon=Math.min(schedule.sucChua,schedule.soChoCon+booking.soNguoi);
+        if(schedule.trangThai==TrangThaiLich.HET_CHO) schedule.trangThai=TrangThaiLich.MO;
+        payments.findFirstByMaDatAndTrangThaiOrderByThoiDiemDesc(id,TrangThaiThanhToan.THANH_CONG).ifPresent(payment -> {
+            payment.soTienHoan=p.refundAmount(); payment.thoiGianHoan=LocalDateTime.now();
+            payment.trangThaiHoan=p.refundRate().compareTo(BigDecimal.valueOf(100))==0?"HOAN_TOAN":p.refundRate().signum()>0?"HOAN_MOT_PHAN":"KHONG_HOAN";
+            if(p.refundAmount().signum()>0) payment.maGiaoDichHoan="REF-"+UUID.randomUUID(); payments.save(payment);
+        });
+        schedules.save(schedule); return detail(bookings.save(booking));
     }
 
-    private void requireOwner(String userName, DatLich booking) {
-        if (!booking.maKh.equals(customerId(userName))) {
-            throw new BusinessException("Bạn không có quyền truy cập đơn này");
-        }
+    @Transactional(readOnly=true)
+    public DatLich owned(String username,String id){DatLich b=bookings.findById(id).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn"));assertOwner(username,b);return b;}
+
+    private CancellationPreviewResponse preview(DatLich b){
+        if(b.trangThai==TrangThaiDatLich.DA_HUY) return new CancellationPreviewResponse(false,0,nz(b.tyLeHoan),nz(b.soTienHoan),"Đơn đã được hủy trước đó");
+        if(checkIns.existsByMaDat(b.maDat)||b.trangThai==TrangThaiDatLich.DA_CHECK_IN) return denied("Đơn đã check-in");
+        if(b.trangThai!=TrangThaiDatLich.CHO_THANH_TOAN&&b.trangThai!=TrangThaiDatLich.DA_XAC_NHAN) return denied("Đơn không thể hủy ở trạng thái hiện tại");
+        LichDichVu s=schedules.findById(b.maLich).orElseThrow(); long hours=ChronoUnit.HOURS.between(LocalDateTime.now(),LocalDateTime.of(s.ngay,s.gioBatDau));
+        if(hours<0) return new CancellationPreviewResponse(false,hours,BigDecimal.ZERO,BigDecimal.ZERO,"Ca bơi đã bắt đầu");
+        BigDecimal rate=hours>=24?BigDecimal.valueOf(100):hours>=6?BigDecimal.valueOf(50):BigDecimal.ZERO;
+        BigDecimal amount=b.trangThai==TrangThaiDatLich.DA_XAC_NHAN?b.tongTien.multiply(rate).divide(BigDecimal.valueOf(100),2,RoundingMode.HALF_UP):BigDecimal.ZERO;
+        return new CancellationPreviewResponse(true,hours,rate,amount,rate.signum()==0?"Hủy hợp lệ nhưng không được hoàn tiền":"Hủy hợp lệ");
+    }
+    private CancellationPreviewResponse denied(String m){return new CancellationPreviewResponse(false,0,BigDecimal.ZERO,BigDecimal.ZERO,m);}
+    private BigDecimal nz(BigDecimal x){return x==null?BigDecimal.ZERO:x;}
+    private void assertOwner(String username,DatLich b){if(!b.maKh.equals(currentCustomer(username).maKh))throw new BusinessException("Bạn không có quyền truy cập đơn này");}
+    private KhachHang currentCustomer(String username){TaiKhoan u=users.findByTenDangNhap(username).orElseThrow();return customers.findByMaTk(u.maTk).orElseThrow(() -> new BusinessException("Tài khoản không có hồ sơ khách hàng"));}
+    private BookingSummaryResponse summary(DatLich b){ScheduleResponse s=catalog.schedule(schedules.findById(b.maLich).orElseThrow());return new BookingSummaryResponse(b.maDat,b.maLich,s.dichVu(),s.hoBoi(),s.khuVuc(),s.ngay(),s.gioBatDau(),s.gioKetThuc(),b.soNguoi,b.tongTien,b.trangThai.name(),b.maVeQr);}
+    @Transactional
+    public void expireIfNeeded(DatLich booking) {
+        if (booking.trangThai != TrangThaiDatLich.CHO_THANH_TOAN || booking.hanThanhToan == null || booking.hanThanhToan.isAfter(LocalDateTime.now())) return;
+        LichDichVu schedule=schedules.lockById(booking.maLich).orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca bơi"));
+        booking.trangThai=TrangThaiDatLich.HET_HAN;
+        schedule.soChoCon=Math.min(schedule.sucChua,schedule.soChoCon+booking.soNguoi);
+        if(schedule.trangThai==TrangThaiLich.HET_CHO && LocalDateTime.of(schedule.ngay,schedule.gioBatDau).isAfter(LocalDateTime.now())) schedule.trangThai=TrangThaiLich.MO;
+        schedules.save(schedule); bookings.save(booking);
     }
 
-    private String customerId(String userName) {
-        TaiKhoan user = userRepository.findByTenDangNhap(userName).orElseThrow();
-        KhachHang customer = customerRepository.findByMaTk(user.maTk)
-                .orElseThrow(() -> new BusinessException("Tài khoản chưa có hồ sơ khách hàng"));
-        if (!"HOAT_DONG".equals(customer.trangThai)) {
-            throw new BusinessException("Tài khoản khách hàng đã bị khóa");
-        }
-        return customer.maKh;
+    @Transactional
+    public void expirePendingBookings() {
+        bookings.findByTrangThaiAndHanThanhToanLessThanEqual(TrangThaiDatLich.CHO_THANH_TOAN,LocalDateTime.now()).forEach(b -> {
+            DatLich locked=bookings.lockById(b.maDat).orElse(null);
+            if(locked!=null) expireIfNeeded(locked);
+        });
     }
 
-    private String newId(String prefix) {
-        return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-    }
+    private BookingDetailResponse detail(DatLich b){ScheduleResponse s=catalog.schedule(schedules.findById(b.maLich).orElseThrow());String payment=payments.findFirstByMaDatOrderByThoiDiemDesc(b.maDat).map(x->x.trangThai.name()).orElse("CHUA_THANH_TOAN");return new BookingDetailResponse(b.maDat,b.maLich,s.dichVu(),s.hoBoi(),s.khuVuc(),s.ngay(),s.gioBatDau(),s.gioKetThuc(),b.soNguoi,b.donGiaTaiDat,b.tongTien,b.trangThai.name(),payment,b.maVeQr,b.lyDoHuy,b.thoiGianHuy,b.tyLeHoan,b.soTienHoan,b.hanThanhToan);}
 }
